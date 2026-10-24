@@ -121,6 +121,15 @@
     </form>
   </dialog>
 
+  <dialog id="dlg-detalle">
+    <div class="detalle-caja">
+      <h3 id="detalle-titulo"></h3>
+      <div id="detalle-lista"></div>
+      <div class="acciones"><span class="espacio"></span>
+        <button class="btn texto" onclick="this.closest('dialog').close()">Cerrar</button></div>
+    </div>
+  </dialog>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

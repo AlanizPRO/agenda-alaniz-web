@@ -248,20 +248,61 @@ function tarjeta(t, conFecha = false) {
   return el;
 }
 
-function bloqueTotales(totales) {
+// Cada cifra del resumen y los trabajos que la forman
+const METRICAS = {
+  ingresos: { etiqueta: "Ingresos", monto: (t) => (t.estado === "REALIZADO" ? t.precio : 0) },
+  porCobrar: { etiqueta: "Por cobrar", monto: (t) => (t.estado === "REALIZADO" ? saldo(t) : 0) },
+  cobrado: { etiqueta: "Cobrado", monto: (t) => (t.estado !== "NO_REALIZADO" ? cobrado(t) : 0) },
+  agendado: { etiqueta: "Agendado", monto: (t) => (t.estado === "PENDIENTE" ? t.precio : 0) },
+};
+const ambitos = {};
+
+function bloqueTotales(totales, lista, ambito) {
+  ambitos[ambito] = lista;
   const monedas = Object.keys(totales);
   if (!monedas.length) return `<p class="vacio">Todavía no hay trabajos.</p>`;
+  const cifra = (clave, m, valor, color) =>
+    `<button class="cifra" data-metrica="${clave}" data-moneda="${m}" data-ambito="${esc(ambito)}">
+      <small>${METRICAS[clave].etiqueta}</small><b style="color:${color}">${dinero(valor, m)}</b></button>`;
   return monedas.map((m) => {
     const t = totales[m];
     return `<div class="moneda-titulo">${MONEDA[m].nombre}</div>
       <div class="cifras">
-        <div class="cifra"><small>Ingresos</small><b style="color:var(--verde)">${dinero(t.ingresos, m)}</b></div>
-        <div class="cifra"><small>Por cobrar</small><b style="color:var(--amarillo-texto)">${dinero(t.porCobrar, m)}</b></div>
-        <div class="cifra"><small>Cobrado</small><b style="color:var(--azul)">${dinero(t.cobrado, m)}</b></div>
-        <div class="cifra"><small>Agendado</small><b>${dinero(t.agendado, m)}</b></div>
+        ${cifra("ingresos", m, t.ingresos, "var(--verde)")}
+        ${cifra("porCobrar", m, t.porCobrar, "var(--amarillo-texto)")}
+        ${cifra("cobrado", m, t.cobrado, "var(--azul)")}
+        ${cifra("agendado", m, t.agendado, "var(--tinta)")}
       </div>`;
   }).join("");
 }
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".cifra[data-metrica]");
+  if (!b) return;
+  e.stopPropagation();
+  const { metrica, moneda, ambito } = b.dataset;
+  const filas = (ambitos[ambito] || [])
+    .filter((t) => t.moneda === moneda)
+    .map((t) => [t, METRICAS[metrica].monto(t)])
+    .filter(([, monto]) => monto > 0)
+    .sort((a, b2) => b2[0].fecha.localeCompare(a[0].fecha));
+  $("#detalle-titulo").textContent = `${METRICAS[metrica].etiqueta} · ${MONEDA[moneda].nombre}`;
+  const cont = $("#detalle-lista");
+  cont.innerHTML = filas.length ? "" : `<p class="vacio">No hay trabajos en esta cifra.</p>`;
+  for (const [t, monto] of filas) {
+    const fila = document.createElement("div");
+    fila.className = "detalle-fila";
+    fila.innerHTML = `<div><b>${esc(t.cliente)}</b><div class="nota">${fechaCorta(t.fecha)} · ${esc(t.titulo || MODALIDAD[t.modalidad])}</div></div>
+      <b>${dinero(monto, moneda)}</b>`;
+    fila.onclick = () => { $("#dlg-detalle").close(); abrirFormulario(t); };
+    cont.appendChild(fila);
+  }
+  if (filas.length) {
+    cont.insertAdjacentHTML("beforeend", `<div class="detalle-total"><span>Total (${filas.length})</span>
+      <b>${dinero(filas.reduce((s, [, m]) => s + m, 0), moneda)}</b></div>`);
+  }
+  $("#dlg-detalle").showModal();
+});
 
 function claseEstado(t) {
   if (t.estado === "NO_REALIZADO") return "ev-no";
@@ -314,7 +355,7 @@ function pintarAgenda() {
   const prefijo = iso(mes).slice(0, 7);
   const delMes = estado.trabajos.filter((t) => t.fecha.startsWith(prefijo));
   $("#resumen-mes").innerHTML = `<h4>Resumen del mes · ${delMes.filter((t) => t.estado !== "NO_REALIZADO").length} trabajos</h4>` +
-    bloqueTotales(totalesPorMoneda(delMes));
+    bloqueTotales(totalesPorMoneda(delMes), delMes, "mes");
 
   $("#dia-titulo").textContent = fechaLarga(estado.seleccion);
   const lista = $("#lista-dia");
@@ -366,7 +407,7 @@ function pintarCobros() {
 }
 
 function pintarClientes() {
-  $("#total-general").innerHTML = bloqueTotales(totalesPorMoneda(estado.trabajos));
+  $("#total-general").innerHTML = bloqueTotales(totalesPorMoneda(estado.trabajos), estado.trabajos, "general");
   const filtro = $("#buscar").value.trim().toLowerCase();
   const grupos = {};
   for (const t of estado.trabajos) (grupos[claveCliente(t.cliente)] ??= []).push(t);
@@ -387,6 +428,7 @@ function pintarClientes() {
           ${tot[m].porCobrar > 0 ? `<span class="amarillo-t">Debe ${dinero(tot[m].porCobrar, m)}</span>` : ""}</div>`).join("");
       const detalle = document.createElement("div");
       detalle.className = "lista oculto";
+      detalle.insertAdjacentHTML("beforeend", bloqueTotales(tot, c.trabajos, "cliente:" + claveCliente(c.nombre)));
       [...c.trabajos].sort((a, b) => b.fecha.localeCompare(a.fecha)).forEach((t) => detalle.appendChild(tarjeta(t, true)));
       el.onclick = (e) => { if (!detalle.contains(e.target)) detalle.classList.toggle("oculto"); };
       el.appendChild(detalle);
