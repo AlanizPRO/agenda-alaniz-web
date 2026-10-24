@@ -35,7 +35,7 @@ body {
 
 .logo {
   width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 12px;
-  background: var(--azul) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 108 108'%3E%3Cpath fill='%23fff' d='M34 36h40a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H34a4 4 0 0 1-4-4V40a4 4 0 0 1 4-4z'/%3E%3Cpath fill='%232E9E6B' d='M34 36h40a4 4 0 0 1 4 4v6H30v-6a4 4 0 0 1 4-4z'/%3E%3Ccircle cx='54' cy='61' r='7' fill='%23FFC83D'/%3E%3C/svg%3E") center/cover;
+  background: var(--azul) url("logo.png") center/cover;
 }
 .logo.chico { width: 28px; height: 28px; border-radius: 8px; margin: 0 8px 0 0; display: inline-block; vertical-align: middle; }
 
