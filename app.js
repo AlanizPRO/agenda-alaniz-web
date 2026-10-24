@@ -6,6 +6,7 @@ import {
   getFirestore, collection, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
+import { enviarRecibo } from "./recibo.js";
 
 const DIAS_PARA_COBRO = 15;
 const TIPOS = { FOTO: "Fotos", VIDEO: "Video", EDICION: "Edición" };
@@ -90,6 +91,7 @@ const saldo = (t) => (t.pagado ? 0 : Math.max(0, t.precio - t.anticipo));
 const cobrado = (t) => (t.estado === "NO_REALIZADO" ? 0 : t.pagado ? t.precio : Math.min(t.anticipo, t.precio));
 const cobroAbierto = (t) => t.estado !== "NO_REALIZADO" && !t.pagado && t.precio > 0;
 const tiposTexto = (t) => Object.keys(TIPOS).filter((k) => t.tipos.includes(k)).map((k) => TIPOS[k]).join(" + ");
+const reglasRecibo = { saldo, fechaCobro, hoy: hoyISO, dinero, tiposTexto, modalidad: (t) => MODALIDAD[t.modalidad] };
 
 function totalesPorMoneda(lista) {
   const res = {};
@@ -398,9 +400,10 @@ function pintarCobros() {
     el.className = "cobro" + (dias < 0 ? " vencido" : "");
     el.innerHTML = `<div class="info"><b>${esc(t.cliente)}</b><div class="nota">${esc(t.titulo || MODALIDAD[t.modalidad])} · ${fechaCorta(t.fecha)}</div>
       <div class="cuando">${cuando}</div>${t.estado === "PENDIENTE" ? '<div class="nota">Falta confirmar si se realizó</div>' : ""}</div>
-      <b>${dinero(saldo(t), t.moneda)}</b>${estado.sesion.soloLectura ? "" : '<button class="btn">Pagado</button>'}`;
+      <b>${dinero(saldo(t), t.moneda)}</b><button class="btn borde recibo" title="Enviar cobro al cliente">Cobro JPG</button>${estado.sesion.soloLectura ? "" : '<button class="btn pagado">Pagado</button>'}`;
     el.querySelector(".info").onclick = () => abrirFormulario(t);
-    const btn = el.querySelector("button");
+    el.querySelector(".recibo").onclick = () => enviarRecibo(t, reglasRecibo);
+    const btn = el.querySelector(".pagado");
     if (btn) btn.onclick = () => guardar({ ...t, pagado: true });
     lista.appendChild(el);
   }
@@ -472,24 +475,18 @@ function abrirFormulario(t, fecha) {
 function actualizarSaldo() {
   const precio = Number(form.precio.value || 0);
   const anticipo = Number(form.anticipo.value || 0);
+  const estadoForm = form.querySelector('[name="estado"]:checked')?.value;
+  $("#btn-recibo").classList.toggle("oculto", !editando || !precio || estadoForm === "NO_REALIZADO");
+  $("#btn-recibo").textContent = form.pagado.checked ? "Recibo de pago JPG" : "Cobro JPG";
   if (!precio || !form.fecha.value) { $("#form-saldo").textContent = ""; return; }
   const s = form.pagado.checked ? 0 : Math.max(0, precio - anticipo);
   $("#form-saldo").textContent = `Saldo por cobrar: ${dinero(s, form.moneda.value)} · Fecha de cobro: ${fechaLarga(sumarDias(form.fecha.value, DIAS_PARA_COBRO))}`;
 }
 form.addEventListener("input", actualizarSaldo);
 
-$("#btn-cancelar").onclick = () => dlg.close();
-$("#btn-borrar").onclick = async () => {
-  if (editando && confirm("¿Borrar este trabajo? También se quitará de Google Calendar cuando se sincronice el celular.")) {
-    await borrar(editando);
-    dlg.close();
-  }
-};
-form.onsubmit = async (e) => {
-  e.preventDefault();
-  if (estado.sesion.soloLectura) return;
+function leerFormulario() {
   const precio = Number(form.precio.value || 0);
-  const t = {
+  return {
     ...(editando ?? {}),
     uuid: editando?.uuid ?? crypto.randomUUID(),
     cliente: form.cliente.value.trim(),
@@ -506,6 +503,20 @@ form.onsubmit = async (e) => {
     estado: form.querySelector('[name="estado"]:checked').value,
     pagado: form.pagado.checked,
   };
+}
+
+$("#btn-cancelar").onclick = () => dlg.close();
+$("#btn-recibo").onclick = () => { if (form.cliente.value.trim()) enviarRecibo(leerFormulario(), reglasRecibo); };
+$("#btn-borrar").onclick = async () => {
+  if (editando && confirm("¿Borrar este trabajo? También se quitará de Google Calendar cuando se sincronice el celular.")) {
+    await borrar(editando);
+    dlg.close();
+  }
+};
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  if (estado.sesion.soloLectura) return;
+  const t = leerFormulario();
   localStorage.setItem("moneda", t.moneda);
   $("#btn-guardar").disabled = true;
   try {
