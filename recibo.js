@@ -3,11 +3,12 @@
 const EMPRESA = "Dianas Films";
 const LEMA = "Productora audiovisual";
 const TELEFONO = "Cel: +505 8803-9928";
+const CUENTA = [["Banco", "LAFISE"], ["Cuenta en dólares", "109277829"], ["A nombre de", "Juan Carlos Perez Alaniz"]];
 
 const ANCHO = 1080;
 const MARGEN = 80;
 const TINTA = "#1F2937", GRIS = "#6B7280", LINEA = "#E5E7EB";
-const VERDE = "#2E9E6B", ROJO = "#D9534F", AZUL = "#1565C0";
+const VERDE = "#2E9E6B", ROJO = "#D9534F", AZUL = "#1565C0", FONDO = "#F3F6FA";
 const SANS = "Inter, Roboto, Arial, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', serif";
 
@@ -108,6 +109,15 @@ export async function dibujarRecibo(t, u) {
   texto("Saldo", MARGEN, y + 20, 50, TINTA, "left", 700);
   texto(u.dinero(saldo, t.moneda), der, y + 10, 66, saldo > 0 && tipo === "VENCIDO" ? ROJO : TINTA, "right", 700);
   y += 130;
+  if (tipo !== "PAGO") {
+    const alto = 100 + CUENTA.length * 56;
+    c.fillStyle = FONDO;
+    c.beginPath(); c.roundRect(MARGEN, y, der - MARGEN, alto, 28); c.fill();
+    texto("Datos para transferencia", MARGEN + 40, y + 34, 32, TINTA, "left", 700);
+    let yc = y + 92;
+    for (const [e, v] of CUENTA) { texto(e, MARGEN + 40, yc, 30, GRIS); texto(v, der - 40, yc, 30, TINTA, "right", 700); yc += 56; }
+    y += alto + 50;
+  }
   y += texto(tipo === "PAGO" ? "Gracias por su preferencia" : "Gracias por su pago puntual", centro, y, 30, GRIS, "center");
   y += 70;
 
