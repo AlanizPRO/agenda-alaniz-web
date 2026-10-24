@@ -151,8 +151,83 @@ label.interruptor input { width: auto; accent-color: var(--verde); }
 .acciones { display: flex; align-items: center; gap: 6px; }
 .espacio { flex: 1; }
 
-@media (max-width: 800px) {
-  .agenda { grid-template-columns: minmax(0, 1fr); }
+/* ---------- Vista tipo Google Calendar ---------- */
+body { font-size: 16px; }
+.barra { padding: 14px 28px; }
+.marca { font-size: 20px; }
+.logo.chico { width: 34px; height: 34px; border-radius: 10px; }
+.pestanas button { font-size: 16px; padding: 10px 20px; }
+.cuenta { font-size: 15px; }
+
+main { max-width: none; padding: 0; }
+.vista.angosta { max-width: 1000px; margin: 0 auto; padding: 28px 28px 60px; }
+
+.agenda-barra { display: flex; align-items: center; gap: 10px; padding: 14px 28px; flex-wrap: wrap; }
+.agenda-barra h2 { margin: 0 12px 0 6px; font-size: 26px; font-weight: 600; }
+.agenda-barra .leyenda { margin: 0; font-size: 14px; }
+.btn.borde { background: #fff; border: 1px solid #D5DBE5; }
+.btn.icono { width: 40px; height: 40px; font-size: 26px; }
+
+.agenda {
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0;
+  height: calc(100vh - 140px); min-height: 560px; border-top: 1px solid var(--borde);
+}
+.calendario {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; margin: 0;
+  border-left: 1px solid var(--borde);
+}
+.calendario .cab {
+  text-align: center; color: var(--gris); font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .04em; padding: 10px 0; border-right: 1px solid var(--borde); border-bottom: 1px solid var(--borde);
+}
+.calendario .dia {
+  aspect-ratio: auto; border-radius: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  gap: 3px; padding: 6px 6px 4px; border: 0; border-right: 1px solid var(--borde); border-bottom: 1px solid var(--borde);
+  overflow: hidden; cursor: pointer; font-size: 14px; min-height: 0;
+}
+.calendario .dia:hover { background: #FAFBFD; }
+.calendario .dia .num {
+  align-self: center; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+  font-size: 15px; font-weight: 500; margin-bottom: 2px;
+}
+.calendario .dia.fuera { color: inherit; background: #FCFCFD; }
+.calendario .dia.fuera .num { color: #B8C0CC; }
+.calendario .dia.hoy { border-color: var(--borde); font-weight: inherit; }
+.calendario .dia.hoy .num { background: var(--azul); color: #fff; font-weight: 700; }
+.calendario .dia.sel { background: var(--azul-claro); color: inherit; font-weight: inherit; }
+.calendario .dia.sel .num { box-shadow: inset 0 0 0 2px var(--azul); }
+.calendario .dia.hoy.sel .num { box-shadow: none; }
+
+.evento {
+  font-size: 13px; line-height: 1.3; padding: 3px 7px; border-radius: 6px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; border-left: 3px solid transparent; flex: none;
+}
+.evento b { font-weight: 600; }
+.evento:hover { filter: brightness(.96); }
+.ev-agendado { background: var(--azul-claro); color: var(--azul); border-left-color: var(--azul); }
+.ev-realizado { background: var(--verde-claro); color: #1E7A51; border-left-color: var(--verde); }
+.ev-pagado { background: var(--verde); color: #fff; border-left-color: #1E7A51; }
+.ev-no { background: #EEF0F3; color: var(--gris); text-decoration: line-through; border-left-color: #C9D0DB; }
+.ev-cobro { background: var(--amarillo-claro); color: #6B4E00; border-left-color: var(--amarillo); }
+.mas { font-size: 12px; color: var(--gris); padding-left: 6px; font-weight: 600; }
+
+.panel { overflow-y: auto; padding: 20px 22px; border-left: 1px solid var(--borde); background: #fff; }
+.panel h3 { margin: 0; font-size: 19px; }
+.panel .caja { margin-top: 20px; }
+.panel .cifras { grid-template-columns: 1fr 1fr; }
+.trabajo .cliente { font-size: 16px; }
+.trabajo .detalle, .trabajo .tipos { font-size: 14px; }
+
+@media (max-width: 900px) {
+  .agenda { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .calendario { height: 70vh; min-height: 480px; }
+  .calendario .cab { font-size: 11px; }
+  .calendario .dia { padding: 4px 2px; }
+  .evento { font-size: 11px; padding: 2px 4px; }
+  .panel { border-left: 0; }
+  .agenda-barra { padding: 12px 16px; }
+  .agenda-barra h2 { font-size: 20px; }
+  .agenda-barra .leyenda { display: none; }
   .barra { flex-wrap: wrap; padding: 10px 16px; }
   .pestanas { order: 3; width: 100%; margin: 0; }
   .cuenta { margin-left: auto; }

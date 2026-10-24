@@ -65,6 +65,11 @@ function minutosATexto(m) {
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${h12}:${String(mi).padStart(2, "0")} ${h < 12 ? "a. m." : "p. m."}`;
 }
+function horaCorta(m) {
+  const h = Math.floor(m / 60), mi = m % 60;
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}${mi ? ":" + String(mi).padStart(2, "0") : ""}${h < 12 ? "am" : "pm"}`;
+}
 function minutosAHora(m) {
   return m == null ? "" : `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
@@ -202,6 +207,7 @@ document.querySelectorAll(".pestanas button").forEach((b) => {
 });
 $("#mes-ant").onclick = () => { estado.mes = new Date(estado.mes.getFullYear(), estado.mes.getMonth() - 1, 1); pintar(); };
 $("#mes-sig").onclick = () => { estado.mes = new Date(estado.mes.getFullYear(), estado.mes.getMonth() + 1, 1); pintar(); };
+$("#btn-hoy").onclick = () => { estado.mes = primerDiaMes(new Date()); estado.seleccion = hoyISO(); pintar(); };
 $("#btn-nuevo").onclick = () => abrirFormulario(null, estado.seleccion);
 $("#buscar").oninput = () => pintarClientes();
 
@@ -257,29 +263,51 @@ function bloqueTotales(totales) {
   }).join("");
 }
 
+function claseEstado(t) {
+  if (t.estado === "NO_REALIZADO") return "ev-no";
+  if (t.pagado) return "ev-pagado";
+  if (t.estado === "REALIZADO") return "ev-realizado";
+  return "ev-agendado";
+}
+
 function pintarAgenda() {
   const mes = estado.mes;
   const titulo = mes.toLocaleDateString("es-NI", { month: "long", year: "numeric" });
   $("#mes-titulo").textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
   const cal = $("#calendario");
-  cal.innerHTML = ["L", "M", "M", "J", "V", "S", "D"].map((d) => `<div class="cab">${d}</div>`).join("");
+  cal.innerHTML = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => `<div class="cab">${d}</div>`).join("");
   const desfase = (mes.getDay() + 6) % 7;
   const inicio = new Date(mes.getFullYear(), mes.getMonth(), 1 - desfase);
   const diasMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
   const semanas = Math.ceil((desfase + diasMes) / 7);
-  const cobros = new Set(estado.trabajos.filter(cobroAbierto).map(fechaCobro));
+  cal.style.gridTemplateRows = `auto repeat(${semanas}, minmax(0, 1fr))`;
   const hoy = hoyISO();
+  const maxVisibles = 3;
   for (let i = 0; i < semanas * 7; i++) {
     const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
     const s = iso(d);
     const delDia = estado.trabajos.filter((t) => t.fecha === s);
+    const cobrosDia = estado.trabajos.filter((t) => cobroAbierto(t) && fechaCobro(t) === s);
     const celda = document.createElement("div");
     celda.className = "dia" + (d.getMonth() !== mes.getMonth() ? " fuera" : "") + (s === hoy ? " hoy" : "") + (s === estado.seleccion ? " sel" : "");
-    celda.innerHTML = `<span>${d.getDate()}</span><span class="puntos">
-      ${delDia.some((t) => t.estado === "PENDIENTE") ? '<i class="punto azul"></i>' : ""}
-      ${delDia.some((t) => t.estado === "REALIZADO") ? '<i class="punto verde"></i>' : ""}
-      ${cobros.has(s) ? '<i class="punto amarillo"></i>' : ""}</span>`;
+    celda.innerHTML = `<span class="num">${d.getDate()}</span>`;
+    const items = [
+      ...delDia.map((t) => ({ t, html: `${t.horaInicio != null ? `<b>${horaCorta(t.horaInicio)}</b> ` : ""}${esc(t.cliente)}`, clase: claseEstado(t) })),
+      ...cobrosDia.map((t) => ({ t, html: `Cobrar a ${esc(t.cliente)}`, clase: "ev-cobro" })),
+    ];
+    items.slice(0, maxVisibles).forEach(({ t, html, clase }) => {
+      const ev = document.createElement("div");
+      ev.className = "evento " + clase;
+      ev.innerHTML = html;
+      ev.title = `${t.cliente} · ${t.titulo || MODALIDAD[t.modalidad]} · ${dinero(t.precio, t.moneda)}`;
+      ev.onclick = (e) => { e.stopPropagation(); abrirFormulario(t); };
+      celda.appendChild(ev);
+    });
+    if (items.length > maxVisibles) {
+      celda.insertAdjacentHTML("beforeend", `<div class="mas">+${items.length - maxVisibles} más</div>`);
+    }
     celda.onclick = () => { estado.seleccion = s; pintarAgenda(); };
+    celda.ondblclick = () => { if (!estado.sesion.soloLectura) abrirFormulario(null, s); };
     cal.appendChild(celda);
   }
 
@@ -293,7 +321,9 @@ function pintarAgenda() {
   lista.innerHTML = "";
   const delDia = estado.trabajos.filter((t) => t.fecha === estado.seleccion);
   const cobrosDia = estado.trabajos.filter((t) => cobroAbierto(t) && fechaCobro(t) === estado.seleccion);
-  if (!delDia.length && !cobrosDia.length) lista.innerHTML = `<p class="vacio">Sin trabajos este día.</p>`;
+  if (!delDia.length && !cobrosDia.length) {
+    lista.innerHTML = `<p class="vacio">Sin trabajos este día.${estado.sesion.soloLectura ? "" : " Haz doble clic en un día del calendario para agendar."}</p>`;
+  }
   delDia.forEach((t) => lista.appendChild(tarjeta(t)));
   cobrosDia.forEach((t) => {
     const el = document.createElement("div");

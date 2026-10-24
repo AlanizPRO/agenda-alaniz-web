@@ -37,38 +37,36 @@
 
     <main>
       <section id="vista-agenda" class="vista">
+        <div class="agenda-barra">
+          <button id="btn-hoy" class="btn borde">Hoy</button>
+          <button id="mes-ant" class="btn icono" aria-label="Mes anterior">‹</button>
+          <button id="mes-sig" class="btn icono" aria-label="Mes siguiente">›</button>
+          <h2 id="mes-titulo"></h2>
+          <div class="leyenda">
+            <span><i class="punto azul"></i>Agendado</span>
+            <span><i class="punto verde"></i>Realizado</span>
+            <span><i class="punto amarillo"></i>Cobro</span>
+          </div>
+          <span class="espacio"></span>
+          <button id="btn-nuevo" class="btn primario">+ Nuevo trabajo</button>
+        </div>
         <div class="agenda">
-          <div class="col-calendario">
-            <div class="mes">
-              <button id="mes-ant" class="btn icono" aria-label="Mes anterior">‹</button>
-              <h2 id="mes-titulo"></h2>
-              <button id="mes-sig" class="btn icono" aria-label="Mes siguiente">›</button>
-            </div>
-            <div id="calendario" class="calendario"></div>
-            <div class="leyenda">
-              <span><i class="punto azul"></i>Agendado</span>
-              <span><i class="punto verde"></i>Realizado</span>
-              <span><i class="punto amarillo"></i>Cobro</span>
-            </div>
-            <div id="resumen-mes" class="caja"></div>
-          </div>
-          <div class="col-dia">
-            <div class="dia-cabecera">
-              <h3 id="dia-titulo"></h3>
-              <button id="btn-nuevo" class="btn primario">+ Nuevo trabajo</button>
-            </div>
+          <div id="calendario" class="calendario"></div>
+          <aside class="panel">
+            <h3 id="dia-titulo"></h3>
             <div id="lista-dia" class="lista"></div>
-          </div>
+            <div id="resumen-mes" class="caja"></div>
+          </aside>
         </div>
       </section>
 
-      <section id="vista-cobros" class="vista oculto">
+      <section id="vista-cobros" class="vista angosta oculto">
         <p class="nota">Cada cobro vence 15 días después del trabajo.</p>
         <div id="cobros-totales" class="cifras"></div>
         <div id="lista-cobros" class="lista"></div>
       </section>
 
-      <section id="vista-clientes" class="vista oculto">
+      <section id="vista-clientes" class="vista angosta oculto">
         <h4 class="seccion">Total general</h4>
         <div id="total-general"></div>
         <input id="buscar" class="campo" placeholder="Buscar cliente">
