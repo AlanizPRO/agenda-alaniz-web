@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function esDueno(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function esLector(uid) {
+      return request.auth != null && request.auth.token.email != null
+        && request.auth.token.email.lower() in
+           get(/databases/$(database)/documents/users/$(uid)).data.get('lectores', []);
+    }
+
+    match /users/{uid} {
+      allow read: if esDueno(uid) || esLector(uid);
+      allow write: if esDueno(uid);
+
+      match /trabajos/{id} {
+        allow read: if esDueno(uid) || esLector(uid);
+        allow write: if esDueno(uid);
+      }
+    }
+
+    // Invitaciones: el invitado busca aquí de quién son los datos que puede ver
+    match /accesos/{email} {
+      allow read: if request.auth != null && request.auth.token.email.lower() == email;
+      allow create: if request.auth != null && request.resource.data.owner == request.auth.uid;
+      allow update: if request.auth != null && resource.data.owner == request.auth.uid
+                    && request.resource.data.owner == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+    }
+  }
+}

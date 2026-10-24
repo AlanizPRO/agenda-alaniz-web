@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda Alaniz</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 108 108'%3E%3Crect width='108' height='108' rx='24' fill='%231565C0'/%3E%3Cpath fill='%23fff' d='M34 36h40a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H34a4 4 0 0 1-4-4V40a4 4 0 0 1 4-4z'/%3E%3Cpath fill='%232E9E6B' d='M34 36h40a4 4 0 0 1 4 4v6H30v-6a4 4 0 0 1 4-4z'/%3E%3Ccircle cx='54' cy='61' r='7' fill='%23FFC83D'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <div id="entrar" class="pantalla-entrar oculto">
+    <div class="tarjeta-entrar">
+      <div class="logo"></div>
+      <h1>Agenda Alaniz</h1>
+      <p>Tus trabajos, clientes y cobros, sincronizados con tu celular.</p>
+      <button id="btn-entrar" class="btn primario">Entrar con Google</button>
+      <p id="error-entrar" class="error"></p>
+    </div>
+  </div>
+
+  <div id="app" class="oculto">
+    <header class="barra">
+      <div class="marca"><span class="logo chico"></span>Agenda Alaniz</div>
+      <nav class="pestanas">
+        <button data-pestana="agenda" class="activa">Agenda</button>
+        <button data-pestana="cobros">Cobros</button>
+        <button data-pestana="clientes">Clientes</button>
+      </nav>
+      <div class="cuenta">
+        <span id="correo"></span>
+        <button id="btn-salir" class="btn texto">Salir</button>
+      </div>
+    </header>
+    <div id="aviso-lectura" class="aviso oculto"></div>
+
+    <main>
+      <section id="vista-agenda" class="vista">
+        <div class="agenda">
+          <div class="col-calendario">
+            <div class="mes">
+              <button id="mes-ant" class="btn icono" aria-label="Mes anterior">‹</button>
+              <h2 id="mes-titulo"></h2>
+              <button id="mes-sig" class="btn icono" aria-label="Mes siguiente">›</button>
+            </div>
+            <div id="calendario" class="calendario"></div>
+            <div class="leyenda">
+              <span><i class="punto azul"></i>Agendado</span>
+              <span><i class="punto verde"></i>Realizado</span>
+              <span><i class="punto amarillo"></i>Cobro</span>
+            </div>
+            <div id="resumen-mes" class="caja"></div>
+          </div>
+          <div class="col-dia">
+            <div class="dia-cabecera">
+              <h3 id="dia-titulo"></h3>
+              <button id="btn-nuevo" class="btn primario">+ Nuevo trabajo</button>
+            </div>
+            <div id="lista-dia" class="lista"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="vista-cobros" class="vista oculto">
+        <p class="nota">Cada cobro vence 15 días después del trabajo.</p>
+        <div id="cobros-totales" class="cifras"></div>
+        <div id="lista-cobros" class="lista"></div>
+      </section>
+
+      <section id="vista-clientes" class="vista oculto">
+        <h4 class="seccion">Total general</h4>
+        <div id="total-general"></div>
+        <input id="buscar" class="campo" placeholder="Buscar cliente">
+        <div id="lista-clientes" class="lista"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="dlg-trabajo">
+    <form id="form-trabajo" method="dialog">
+      <h3 id="form-titulo">Nuevo trabajo</h3>
+      <label>Cliente *<input name="cliente" required list="clientes-lista" autocomplete="off"></label>
+      <datalist id="clientes-lista"></datalist>
+      <label>Descripción<input name="titulo" placeholder="Ej. Boda Ana y Luis"></label>
+      <div class="fila">
+        <label>Fecha<input name="fecha" type="date" required></label>
+        <label>Inicio<input name="horaInicio" type="time"></label>
+        <label>Fin<input name="horaFin" type="time"></label>
+      </div>
+      <fieldset><legend>Tipo de trabajo</legend>
+        <label class="chip"><input type="checkbox" name="tipos" value="FOTO">Fotos</label>
+        <label class="chip"><input type="checkbox" name="tipos" value="VIDEO">Video</label>
+        <label class="chip"><input type="checkbox" name="tipos" value="EDICION">Edición</label>
+      </fieldset>
+      <fieldset><legend>Modalidad</legend>
+        <label class="chip"><input type="radio" name="modalidad" value="EVENTO">Cobertura de evento</label>
+        <label class="chip"><input type="radio" name="modalidad" value="REEL">Reel para redes</label>
+        <label class="chip"><input type="radio" name="modalidad" value="OTRO">Otro</label>
+      </fieldset>
+      <div class="fila">
+        <label>Moneda
+          <select name="moneda"><option value="USD">US$ Dólares</option><option value="NIO">C$ Córdobas</option></select>
+        </label>
+        <label>Precio *<input name="precio" type="number" step="0.01" min="0" required></label>
+        <label>Anticipo<input name="anticipo" type="number" step="0.01" min="0"></label>
+      </div>
+      <p id="form-saldo" class="saldo"></p>
+      <fieldset><legend>¿Se realizó el trabajo?</legend>
+        <label class="chip"><input type="radio" name="estado" value="PENDIENTE">Pendiente</label>
+        <label class="chip"><input type="radio" name="estado" value="REALIZADO">Realizado</label>
+        <label class="chip"><input type="radio" name="estado" value="NO_REALIZADO">No realizado</label>
+      </fieldset>
+      <label class="interruptor"><input type="checkbox" name="pagado">Pago completo recibido</label>
+      <label>Notas<textarea name="notas" rows="3"></textarea></label>
+      <p class="nota">Se agenda en Google Calendar la próxima vez que se sincronice tu celular.</p>
+      <div class="acciones">
+        <button type="button" id="btn-borrar" class="btn texto rojo">Borrar</button>
+        <span class="espacio"></span>
+        <button type="button" id="btn-cancelar" class="btn texto">Cancelar</button>
+        <button type="submit" id="btn-guardar" class="btn primario">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
