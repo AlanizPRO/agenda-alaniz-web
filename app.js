@@ -201,7 +201,7 @@ onAuthStateChanged(auth, async (u) => {
     estado.dejarDeEscucharGastos = onSnapshot(collection(db, "users", u.uid, "gastos"), (snap) => {
       estado.gastos = snap.docs.map((d) => normalizarGasto(d.id, d.data()));
       pintar();
-    }, (e) => console.error("Gastos:", e));
+    }, (e) => alert("No se pudieron leer los gastos: " + e.message + "\nRevisa que las reglas de Firebase estén publicadas y recarga la página."));
   }
   $("#entrar").classList.add("oculto");
   $("#app").classList.remove("oculto");
@@ -724,7 +724,7 @@ function filaGasto(g) {
     <div class="monto"><b style="color:${color}">${dinero(g.monto, g.moneda)}</b>
       ${c.noResta && g.pagado ? '<small style="color:var(--azul)">Inversión</small>' : g.pagado ? '<small style="color:var(--verde)">✓ Pagado</small>' : '<button class="btn pagado">Pagado</button>'}</div>`;
   el.onclick = () => abrirGasto(g);
-  el.querySelector(".pagado")?.addEventListener("click", (e) => { e.stopPropagation(); guardarGasto({ ...g, pagado: true }); });
+  el.querySelector(".pagado")?.addEventListener("click", (e) => { e.stopPropagation(); guardarGasto({ ...g, pagado: true }).catch((err) => alert("No se pudo guardar: " + err.message)); });
   return el;
 }
 
@@ -878,5 +878,9 @@ formGasto.onsubmit = async (e) => {
     notas: formGasto.notas.value.trim(),
   };
   dlgGasto.close();
-  await guardarGasto(g, imagenGasto);
+  try {
+    await guardarGasto(g, imagenGasto);
+  } catch (err) {
+    alert("No se pudo guardar el gasto: " + err.message);
+  }
 };
