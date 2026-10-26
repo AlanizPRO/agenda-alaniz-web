@@ -197,6 +197,7 @@ onAuthStateChanged(auth, async (u) => {
   $("#btn-nuevo").classList.toggle("oculto", sesion.soloLectura);
   // Gastos: privados del dueño, los invitados no los ven
   $('.pestanas [data-pestana="gastos"]').classList.toggle("oculto", sesion.soloLectura);
+  $("#leyenda-pago").classList.toggle("oculto", sesion.soloLectura);
   if (!sesion.soloLectura) {
     estado.dejarDeEscucharGastos = onSnapshot(collection(db, "users", u.uid, "gastos"), (snap) => {
       estado.gastos = snap.docs.map((d) => normalizarGasto(d.id, d.data()));
@@ -379,6 +380,10 @@ function pintarAgenda() {
   cal.style.gridTemplateRows = `auto repeat(${semanas}, minmax(0, 1fr))`;
   const hoy = hoyISO();
   const maxVisibles = 3;
+  // Gastos sin pagar (solo el dueño): se ven en naranja para no confundirlos con los cobros
+  const porPagar = estado.sesion.soloLectura ? [] : [-1, 0, 1]
+    .flatMap((k) => gastosDelMes(iso(new Date(mes.getFullYear(), mes.getMonth() + k, 1)).slice(0, 7)))
+    .filter((g) => !g.pagado);
   for (let i = 0; i < semanas * 7; i++) {
     const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
     const s = iso(d);
@@ -395,13 +400,15 @@ function pintarAgenda() {
     const items = [
       ...delDia.map((t) => ({ t, html: `${t.horaInicio != null ? `<b>${horaCorta(t.horaInicio)}</b> ` : ""}${esc(t.cliente)}`, clase: claseEstado(t) })),
       ...cobrosDia.map((t) => ({ t, html: `Cobrar a ${esc(t.cliente)}`, clase: "ev-cobro" })),
+      ...porPagar.filter((g) => g.fecha === s).map((g) => ({ g, html: `${gastoVencido(g) ? "⚠ " : ""}Pagar ${esc(tituloGasto(g))}`, clase: "ev-pago" })),
     ];
-    items.slice(0, maxVisibles).forEach(({ t, html, clase }) => {
+    items.slice(0, maxVisibles).forEach(({ t, g, html, clase }) => {
       const ev = document.createElement("div");
       ev.className = "evento " + clase;
       ev.innerHTML = html;
-      ev.title = `${t.cliente} · ${t.titulo || MODALIDAD[t.modalidad]} · ${dinero(t.precio, t.moneda)}`;
-      ev.onclick = (e) => { e.stopPropagation(); abrirFormulario(t); };
+      ev.title = g ? `${tituloGasto(g)} · ${dinero(g.monto, g.moneda)} · sin pagar`
+        : `${t.cliente} · ${t.titulo || MODALIDAD[t.modalidad]} · ${dinero(t.precio, t.moneda)}`;
+      ev.onclick = (e) => { e.stopPropagation(); g ? abrirGasto(g) : abrirFormulario(t); };
       celda.appendChild(ev);
     });
     if (items.length > maxVisibles) {

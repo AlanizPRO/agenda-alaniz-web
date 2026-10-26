@@ -209,6 +209,8 @@ main { max-width: none; padding: 0; }
 .ev-pagado { background: var(--verde); color: #fff; border-left-color: #1E7A51; }
 .ev-no { background: #EEF0F3; color: var(--gris); text-decoration: line-through; border-left-color: #C9D0DB; }
 .ev-cobro { background: var(--amarillo-claro); color: #6B4E00; border-left-color: var(--amarillo); }
+.ev-pago { background: #FFE0C2; color: #8A4500; border-left-color: #F08A24; }
+.m-pago { --m-fondo: #FFE0C2; --m-borde: #F08A24; --m-texto: #8A4500; }
 .mas { font-size: 12px; color: var(--gris); padding-left: 6px; font-weight: 600; }
 
 .panel { overflow-y: auto; padding: 20px 22px; border-left: 1px solid var(--borde); background: #fff; }
@@ -319,6 +321,8 @@ html[data-tema="oscuro"] .cobro-dia,
 html[data-tema="oscuro"] .saldo { color: #E7C15A; }
 html[data-tema="oscuro"] .m-agendado { --m-fondo: #1F3A5F; --m-borde: #5B9BE6; --m-texto: #B5D3F7; }
 html[data-tema="oscuro"] .m-realizado { --m-fondo: #1C3D2E; --m-borde: #3DBB82; --m-texto: #9EE2C0; }
+html[data-tema="oscuro"] .ev-pago { background: #4A2E12; color: #FFC08A; }
+html[data-tema="oscuro"] .m-pago { --m-fondo: #4A2E12; --m-borde: #F08A24; --m-texto: #FFC08A; }
 html[data-tema="oscuro"] .m-cobro { --m-fondo: #4A3B0E; --m-borde: #FFC83D; --m-texto: #FFDC80; }
 html[data-tema="oscuro"] .m-vencido { --m-fondo: #4A1F1E; --m-borde: #E0625E; --m-texto: #F6B0AD; }
 .btn-tema { font-size: 14px; padding: 8px 14px; margin-right: 8px; }
