@@ -7,7 +7,16 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilos.css?v=26">
+  <link rel="stylesheet" href="estilos.css?v=27">
+  <script>
+    // Tema antes de pintar, para que no parpadee en blanco
+    (function () {
+      var t = "auto";
+      try { t = localStorage.getItem("tema") || "auto"; } catch (e) {}
+      var oscuro = t === "oscuro" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+    })();
+  </script>
 </head>
 <body>
   <div id="entrar" class="pantalla-entrar oculto">
@@ -30,6 +39,7 @@
       </nav>
       <div class="cuenta">
         <span id="correo"></span>
+        <button id="btn-tema" class="btn borde btn-tema" title="Cambiar colores"></button>
         <button id="btn-salir" class="btn texto">Salir</button>
       </div>
     </header>
@@ -132,6 +142,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js?v=26"></script>
+  <script type="module" src="app.js?v=27"></script>
 </body>
 </html>

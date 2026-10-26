@@ -141,6 +141,27 @@ $("#btn-entrar").onclick = async () => {
 };
 $("#btn-salir").onclick = () => signOut(auth);
 
+// ---------- Tema: Claro / Oscuro / Automático (sigue al sistema) ----------
+const TEMAS = { auto: "◐ Automático", oscuro: "☾ Oscuro", claro: "☀ Claro" };
+const sistemaOscuro = matchMedia("(prefers-color-scheme: dark)");
+function leerTema() {
+  try { return localStorage.getItem("tema") || "auto"; } catch { return "auto"; }
+}
+function aplicarTema() {
+  const t = leerTema();
+  const oscuro = t === "oscuro" || (t === "auto" && sistemaOscuro.matches);
+  document.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+  $("#btn-tema").textContent = TEMAS[t];
+}
+$("#btn-tema").onclick = () => {
+  const orden = ["auto", "oscuro", "claro"];
+  const sig = orden[(orden.indexOf(leerTema()) + 1) % orden.length];
+  try { localStorage.setItem("tema", sig); } catch {}
+  aplicarTema();
+};
+sistemaOscuro.addEventListener("change", aplicarTema);
+aplicarTema();
+
 onAuthStateChanged(auth, async (u) => {
   estado.dejarDeEscuchar?.();
   if (!u) {

@@ -274,3 +274,51 @@ button.cifra small::after { content: " ›"; }
   main { padding: 16px 16px 60px; }
   .fila { flex-wrap: wrap; }
 }
+
+/* ---------- Modo oscuro (botón Claro / Oscuro / Automático) ---------- */
+html[data-tema="oscuro"] {
+  color-scheme: dark;
+  --azul: #5B9BE6;
+  --azul-claro: #1B2A40;
+  --verde: #3DBB82;
+  --verde-claro: #16302A;
+  --amarillo-claro: #33290F;
+  --amarillo-texto: #E7C15A;
+  --gris: #9AA3B2;
+  --tinta: #E6E9EF;
+  --borde: #262B34;
+  --suave: #1A1E25;
+  --blanco: #0F1115;
+  --celeste: #14283A;
+  --menta: #15291F; --menta-texto: #8FD9B3;
+}
+html[data-tema="oscuro"] body { background: var(--blanco); }
+html[data-tema="oscuro"] .barra,
+html[data-tema="oscuro"] .panel,
+html[data-tema="oscuro"] .tarjeta-entrar,
+html[data-tema="oscuro"] dialog { background: var(--blanco); color: var(--tinta); }
+html[data-tema="oscuro"] .btn.primario { background: #1565C0; }
+html[data-tema="oscuro"] .btn.borde,
+html[data-tema="oscuro"] .check,
+html[data-tema="oscuro"] .campo,
+html[data-tema="oscuro"] dialog input,
+html[data-tema="oscuro"] dialog select,
+html[data-tema="oscuro"] dialog textarea { background: var(--suave); border-color: #333A45; }
+html[data-tema="oscuro"] label.chip { border-color: #333A45; }
+html[data-tema="oscuro"] dialog label { color: #A6AEBB; }
+html[data-tema="oscuro"] dialog::backdrop { background: rgba(0,0,0,.6); }
+html[data-tema="oscuro"] .calendario { background-image: url(marca-agua-oscura.png); }
+html[data-tema="oscuro"] .calendario .dia:hover { background: #151922; }
+html[data-tema="oscuro"] .calendario .dia.domingo:hover { background: #18304A; }
+html[data-tema="oscuro"] .calendario .dia.fuera .num { color: #4B5361; }
+html[data-tema="oscuro"] .ev-realizado { color: #8FD9B3; }
+html[data-tema="oscuro"] .ev-pagado { background: #23885C; border-left-color: #3DBB82; }
+html[data-tema="oscuro"] .ev-no, html[data-tema="oscuro"] .e-no { background: #22262E; border-left-color: #3A414D; }
+html[data-tema="oscuro"] .ev-cobro,
+html[data-tema="oscuro"] .cobro-dia,
+html[data-tema="oscuro"] .saldo { color: #E7C15A; }
+html[data-tema="oscuro"] .m-agendado { --m-fondo: #1F3A5F; --m-borde: #5B9BE6; --m-texto: #B5D3F7; }
+html[data-tema="oscuro"] .m-realizado { --m-fondo: #1C3D2E; --m-borde: #3DBB82; --m-texto: #9EE2C0; }
+html[data-tema="oscuro"] .m-cobro { --m-fondo: #4A3B0E; --m-borde: #FFC83D; --m-texto: #FFDC80; }
+html[data-tema="oscuro"] .m-vencido { --m-fondo: #4A1F1E; --m-borde: #E0625E; --m-texto: #F6B0AD; }
+.btn-tema { font-size: 14px; padding: 8px 14px; margin-right: 8px; }
