@@ -209,6 +209,20 @@ document.querySelectorAll(".pestanas button").forEach((b) => {
 });
 $("#mes-ant").onclick = () => { estado.mes = new Date(estado.mes.getFullYear(), estado.mes.getMonth() - 1, 1); pintar(); };
 $("#mes-sig").onclick = () => { estado.mes = new Date(estado.mes.getFullYear(), estado.mes.getMonth() + 1, 1); pintar(); };
+
+// Deslizar el dedo sobre el calendario: izquierda = mes siguiente, derecha = mes anterior
+(() => {
+  let x0 = null, y0 = null;
+  const cal = $("#calendario");
+  cal.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  cal.addEventListener("touchend", (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    (dx < 0 ? $("#mes-sig") : $("#mes-ant")).click();
+  });
+})();
 $("#btn-hoy").onclick = () => { estado.mes = primerDiaMes(new Date()); estado.seleccion = hoyISO(); pintar(); };
 $("#btn-nuevo").onclick = () => abrirFormulario(null, estado.seleccion);
 $("#buscar").oninput = () => pintarClientes();
@@ -315,11 +329,13 @@ function claseEstado(t) {
 
 function pintarAgenda() {
   const mes = estado.mes;
-  const titulo = mes.toLocaleDateString("es-NI", { month: "long", year: "numeric" });
+  // Solo el mes, como en la app
+  const titulo = mes.toLocaleDateString("es-NI", { month: "long" });
   $("#mes-titulo").textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
   const cal = $("#calendario");
-  cal.innerHTML = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => `<div class="cab">${d}</div>`).join("");
-  const desfase = (mes.getDay() + 6) % 7;
+  cal.innerHTML = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((d) => `<div class="cab">${d}</div>`).join("");
+  // Semana empieza el domingo
+  const desfase = mes.getDay();
   const inicio = new Date(mes.getFullYear(), mes.getMonth(), 1 - desfase);
   const diasMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
   const semanas = Math.ceil((desfase + diasMes) / 7);
@@ -331,8 +347,13 @@ function pintarAgenda() {
     const s = iso(d);
     const delDia = estado.trabajos.filter((t) => t.fecha === s);
     const cobrosDia = estado.trabajos.filter((t) => cobroAbierto(t) && fechaCobro(t) === s);
+    // El número toma el color del estado más importante del día
+    const marca = cobrosDia.length ? (s < hoy ? "m-vencido" : "m-cobro")
+      : delDia.some((t) => t.estado === "PENDIENTE") ? "m-agendado"
+      : delDia.some((t) => t.estado === "REALIZADO") ? "m-realizado" : "";
     const celda = document.createElement("div");
-    celda.className = "dia" + (d.getMonth() !== mes.getMonth() ? " fuera" : "") + (s === hoy ? " hoy" : "") + (s === estado.seleccion ? " sel" : "");
+    celda.className = "dia" + (d.getMonth() !== mes.getMonth() ? " fuera" : "") + (d.getDay() === 0 ? " domingo" : "") +
+      (s === hoy ? " hoy" : "") + (s === estado.seleccion ? " sel" : "") + (marca ? " " + marca : "");
     celda.innerHTML = `<span class="num">${d.getDate()}</span>`;
     const items = [
       ...delDia.map((t) => ({ t, html: `${t.horaInicio != null ? `<b>${horaCorta(t.horaInicio)}</b> ` : ""}${esc(t.cliente)}`, clase: claseEstado(t) })),

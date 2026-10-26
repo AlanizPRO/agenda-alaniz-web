@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilos.css">
+  <link rel="stylesheet" href="estilos.css?v=26">
 </head>
 <body>
   <div id="entrar" class="pantalla-entrar oculto">
@@ -43,9 +43,10 @@
           <button id="mes-sig" class="btn icono" aria-label="Mes siguiente">›</button>
           <h2 id="mes-titulo"></h2>
           <div class="leyenda">
-            <span><i class="punto azul"></i>Agendado</span>
-            <span><i class="punto verde"></i>Realizado</span>
-            <span><i class="punto amarillo"></i>Cobro</span>
+            <span><i class="cuadro m-agendado"></i>Agendado</span>
+            <span><i class="cuadro m-realizado"></i>Realizado</span>
+            <span><i class="cuadro m-cobro"></i>Cobro</span>
+            <span><i class="cuadro m-vencido"></i>Vencido</span>
           </div>
           <span class="espacio"></span>
           <button id="btn-nuevo" class="btn primario">+ Nuevo trabajo</button>
@@ -131,6 +132,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=26"></script>
 </body>
 </html>

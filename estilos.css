@@ -230,6 +230,33 @@ button.cifra small::after { content: " ›"; }
 .detalle-total { display: flex; justify-content: space-between; padding: 12px 8px 0; border-top: 1px solid var(--borde); margin-top: 6px; font-weight: 600; }
 .detalle-total b { color: var(--azul); }
 
+/* ---------- Mismo estilo que la app ---------- */
+:root {
+  --celeste: #D4ECFA;
+  --menta: #E2F4EB; --menta-texto: #1B6B47;
+}
+/* Marca de agua: logo de Dianas Films en gris muy tenue */
+.calendario { background: url(marca-agua.png) center 55% / min(46%, 420px) no-repeat; }
+.calendario .cab { background: var(--menta); color: var(--menta-texto); }
+.calendario .dia.domingo { background: var(--celeste); }
+.calendario .dia.domingo:hover { background: #C9E5F7; }
+.calendario .dia.fuera { background: transparent; }
+.calendario .dia.fuera.domingo { background: var(--celeste); }
+.calendario .dia:not(.hoy) .num { border-radius: 9px; }
+.m-agendado { --m-fondo: #BBD3F3; --m-borde: #1565C0; --m-texto: #0D47A1; }
+.m-realizado { --m-fondo: #C3E8D5; --m-borde: #2E9E6B; --m-texto: #1B6B47; }
+.m-cobro { --m-fondo: #FFE49A; --m-borde: #FFC83D; --m-texto: #6E5200; }
+.m-vencido { --m-fondo: #F8CBC9; --m-borde: #D9534F; --m-texto: #9E2B27; }
+.calendario .dia:not(.hoy)[class*="m-"] .num {
+  background: var(--m-fondo); color: var(--m-texto); box-shadow: inset 0 0 0 1.5px var(--m-borde); font-weight: 700;
+}
+.calendario .dia.fuera[class*="m-"]:not(.hoy) .num { opacity: .55; }
+.cuadro {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px;
+  background: var(--m-fondo); box-shadow: inset 0 0 0 1px var(--m-borde);
+}
+.calendario .dia:not(.hoy)[class*="m-"] .num { width: 34px; height: 30px; }
+
 @media (max-width: 900px) {
   .agenda { grid-template-columns: minmax(0, 1fr); height: auto; }
   .calendario { height: 70vh; min-height: 480px; }
