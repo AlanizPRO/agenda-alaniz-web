@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilos.css?v=27">
+  <link rel="stylesheet" href="estilos.css?v=28">
   <script>
     // Tema antes de pintar, para que no parpadee en blanco
     (function () {
@@ -35,6 +35,7 @@
       <nav class="pestanas">
         <button data-pestana="agenda" class="activa">Agenda</button>
         <button data-pestana="cobros">Cobros</button>
+        <button data-pestana="gastos" class="oculto">Gastos</button>
         <button data-pestana="clientes">Clientes</button>
       </nav>
       <div class="cuenta">
@@ -75,6 +76,20 @@
         <p class="nota">Cada cobro vence 15 días después del trabajo.</p>
         <div id="cobros-totales" class="cifras"></div>
         <div id="lista-cobros" class="lista"></div>
+      </section>
+
+      <section id="vista-gastos" class="vista angosta oculto">
+        <div class="gastos-barra">
+          <button id="gastos-ant" class="btn icono" aria-label="Mes anterior">‹</button>
+          <h2 id="gastos-mes"></h2>
+          <button id="gastos-sig" class="btn icono" aria-label="Mes siguiente">›</button>
+          <span class="nota">🔒 Solo tú</span>
+          <span class="espacio"></span>
+          <button id="btn-nuevo-gasto" class="btn primario">+ Nuevo gasto</button>
+        </div>
+        <div id="gastos-totales"></div>
+        <div id="gastos-filtros" class="filtros"></div>
+        <div id="lista-gastos" class="lista"></div>
       </section>
 
       <section id="vista-clientes" class="vista angosta oculto">
@@ -133,6 +148,45 @@
     </form>
   </dialog>
 
+  <dialog id="dlg-gasto">
+    <form id="form-gasto" method="dialog">
+      <h3 id="gasto-titulo">Nuevo gasto</h3>
+      <fieldset><legend>Categoría</legend><div class="cats"></div></fieldset>
+      <p id="aviso-equipo" class="nota oculto">La compra de equipo no se resta de la ganancia: solo te muestra cuánto invertiste.</p>
+      <label>Descripción<input name="descripcion" placeholder="Ej. Renta del estudio"></label>
+      <label id="campo-acreedor">¿A quién se le debe?<input name="acreedor"></label>
+      <div class="fila">
+        <label>Moneda
+          <select name="moneda"><option value="USD">US$ Dólares</option><option value="NIO">C$ Córdobas</option></select>
+        </label>
+        <label>Monto *<input name="monto" type="number" step="0.01" min="0.01" required></label>
+        <label>Fecha de pago<input name="fecha" type="date" required></label>
+      </div>
+      <label class="interruptor"><input type="checkbox" name="repetir">Se repite cada mes</label>
+      <label class="interruptor"><input type="checkbox" name="pagado">Ya está pagado</label>
+      <fieldset><legend>Comprobante de la transferencia</legend>
+        <div class="comprobante">
+          <div id="mini-comprobante" class="mini" title="Ver en grande">🧾</div>
+          <div>
+            <button type="button" id="btn-captura" class="btn borde">📎 <span id="btn-captura-texto">Adjuntar captura</span></button>
+            <button type="button" id="btn-quitar-captura" class="btn texto rojo oculto">Quitar</button>
+            <p class="nota">Toca la imagen para verla en grande.</p>
+          </div>
+        </div>
+        <input id="archivo-captura" type="file" accept="image/*" hidden>
+      </fieldset>
+      <label>Notas<textarea name="notas" rows="2"></textarea></label>
+      <div class="acciones">
+        <button type="button" id="btn-borrar-gasto" class="btn texto rojo">Borrar</button>
+        <span class="espacio"></span>
+        <button type="button" id="btn-cancelar-gasto" class="btn texto">Cancelar</button>
+        <button type="submit" class="btn primario">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-comprobante" class="visor"><img id="comprobante-grande" alt="Comprobante"></dialog>
+
   <dialog id="dlg-detalle">
     <div class="detalle-caja">
       <h3 id="detalle-titulo"></h3>
@@ -142,6 +196,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js?v=27"></script>
+  <script type="module" src="app.js?v=28"></script>
 </body>
 </html>

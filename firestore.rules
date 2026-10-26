@@ -18,6 +18,14 @@ service cloud.firestore {
         allow read: if esDueno(uid) || esLector(uid);
         allow write: if esDueno(uid);
       }
+
+      // Gastos y capturas de pago: privados, solo el dueño
+      match /gastos/{id} {
+        allow read, write: if esDueno(uid);
+      }
+      match /comprobantes/{id} {
+        allow read, write: if esDueno(uid);
+      }
     }
 
     // Invitaciones: el invitado busca aquí de quién son los datos que puede ver

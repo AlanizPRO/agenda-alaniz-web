@@ -3,7 +3,7 @@ import {
   getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc,
+  getFirestore, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
 import { enviarRecibo } from "./recibo.js";
@@ -25,6 +25,10 @@ const estado = {
   seleccion: hoyISO(),
   pestana: "agenda",
   dejarDeEscuchar: null,
+  gastos: [],
+  dejarDeEscucharGastos: null,
+  mesGastos: primerDiaMes(new Date()),
+  filtroGasto: null,
 };
 
 // ---------- Utilidades ----------
@@ -164,6 +168,9 @@ aplicarTema();
 
 onAuthStateChanged(auth, async (u) => {
   estado.dejarDeEscuchar?.();
+  estado.dejarDeEscucharGastos?.();
+  estado.dejarDeEscucharGastos = null;
+  estado.gastos = [];
   if (!u) {
     $("#entrar").classList.remove("oculto");
     $("#app").classList.add("oculto");
@@ -188,6 +195,14 @@ onAuthStateChanged(auth, async (u) => {
   $("#aviso-lectura").textContent = `Estás viendo la agenda de ${sesion.duenoEmail}. Solo esa persona puede agregar o cambiar datos.`;
   $("#aviso-lectura").classList.toggle("oculto", !sesion.soloLectura);
   $("#btn-nuevo").classList.toggle("oculto", sesion.soloLectura);
+  // Gastos: privados del dueño, los invitados no los ven
+  $('.pestanas [data-pestana="gastos"]').classList.toggle("oculto", sesion.soloLectura);
+  if (!sesion.soloLectura) {
+    estado.dejarDeEscucharGastos = onSnapshot(collection(db, "users", u.uid, "gastos"), (snap) => {
+      estado.gastos = snap.docs.map((d) => normalizarGasto(d.id, d.data()));
+      pintar();
+    }, (e) => console.error("Gastos:", e));
+  }
   $("#entrar").classList.add("oculto");
   $("#app").classList.remove("oculto");
 
@@ -224,7 +239,7 @@ document.querySelectorAll(".pestanas button").forEach((b) => {
   b.onclick = () => {
     estado.pestana = b.dataset.pestana;
     document.querySelectorAll(".pestanas button").forEach((x) => x.classList.toggle("activa", x === b));
-    for (const v of ["agenda", "cobros", "clientes"]) $("#vista-" + v).classList.toggle("oculto", v !== estado.pestana);
+    for (const v of ["agenda", "cobros", "gastos", "clientes"]) $("#vista-" + v).classList.toggle("oculto", v !== estado.pestana);
     pintar();
   };
 });
@@ -252,6 +267,7 @@ function pintar() {
   if (estado.pestana === "agenda") pintarAgenda();
   if (estado.pestana === "cobros") pintarCobros();
   if (estado.pestana === "clientes") pintarClientes();
+  if (estado.pestana === "gastos") pintarGastos();
   $("#clientes-lista").innerHTML = [...new Set(estado.trabajos.map((t) => t.cliente.trim()))]
     .map((c) => `<option value="${esc(c)}">`).join("");
 }
@@ -399,7 +415,7 @@ function pintarAgenda() {
   const prefijo = iso(mes).slice(0, 7);
   const delMes = estado.trabajos.filter((t) => t.fecha.startsWith(prefijo));
   $("#resumen-mes").innerHTML = `<h4>Resumen del mes · ${delMes.filter((t) => t.estado !== "NO_REALIZADO").length} trabajos</h4>` +
-    bloqueTotales(totalesPorMoneda(delMes), delMes, "mes");
+    bloqueTotales(totalesPorMoneda(delMes), delMes, "mes") + bloqueGanancia(totalesPorMoneda(delMes), gastosDelMes(iso(mes).slice(0, 7)));
 
   $("#dia-titulo").textContent = fechaLarga(estado.seleccion);
   const lista = $("#lista-dia");
@@ -571,4 +587,296 @@ form.onsubmit = async (e) => {
   } finally {
     $("#btn-guardar").disabled = false;
   }
+};
+
+// ---------- Gastos (privados del dueño) ----------
+// users/{uid}/gastos/{id}; capturas comprimidas en users/{uid}/comprobantes/{id}. Igual que la app.
+
+const CATEGORIAS = {
+  RENTA: { etiqueta: "Renta", emoji: "🏠", fondo: "#E3EEFB", barra: "#64A0E8" },
+  FIJOS: { etiqueta: "Pagos fijos", emoji: "📌", fondo: "#E2F4EB", barra: "#4CB585" },
+  GASOLINA: { etiqueta: "Gasolina", emoji: "⛽", fondo: "#FFF5D6", barra: "#F2C14E" },
+  PERSONALES: { etiqueta: "Pagos personales", emoji: "👤", fondo: "#F3E8FF", barra: "#A77BDB", acreedor: true },
+  PRESTAMOS: { etiqueta: "Préstamos", emoji: "🤝", fondo: "#FFEDE0", barra: "#F08A4B", acreedor: true },
+  // Inversión: se muestra aparte y no resta de la ganancia
+  EQUIPO: { etiqueta: "Compra de equipo", emoji: "📷", fondo: "#FDECEC", barra: "#E57373", noResta: true },
+};
+
+function normalizarGasto(id, d) {
+  return {
+    id,
+    categoria: CATEGORIAS[d.categoria] ? d.categoria : "FIJOS",
+    descripcion: d.descripcion ?? "",
+    acreedor: d.acreedor ?? "",
+    monto: Number(d.monto ?? 0),
+    moneda: d.moneda ?? "USD",
+    fecha: d.fecha,
+    repetir: !!d.repetir,
+    serie: d.serie ?? id,
+    pagado: !!d.pagado,
+    notas: d.notas ?? "",
+    comprobante: !!d.comprobante,
+    omitido: !!d.omitido,
+    actualizado: d.actualizado ?? 0,
+  };
+}
+const tituloGasto = (g) => g.descripcion || CATEGORIAS[g.categoria].etiqueta;
+const gastoVencido = (g) => !g.pagado && g.fecha < hoyISO();
+
+/** Gastos de un mes ("2026-10"), con copias pendientes de los que se repiten cada mes. */
+function gastosDelMes(ym) {
+  const reales = estado.gastos.filter((g) => g.fecha.startsWith(ym));
+  const conMes = new Set(reales.map((g) => g.serie));
+  const series = {};
+  for (const g of estado.gastos) (series[g.serie] ??= []).push(g);
+  const copias = [];
+  for (const [serie, lista] of Object.entries(series)) {
+    if (conMes.has(serie)) continue;
+    const ultimo = lista.filter((g) => g.fecha.slice(0, 7) < ym).sort((a, b) => a.fecha.localeCompare(b.fecha)).pop();
+    if (!ultimo?.repetir) continue;
+    const [a, m] = ym.split("-").map(Number);
+    const dia = Math.min(Number(ultimo.fecha.slice(8)), new Date(a, m, 0).getDate());
+    copias.push({ ...ultimo, id: `${serie}_${ym}`, fecha: `${ym}-${String(dia).padStart(2, "0")}`,
+      pagado: false, comprobante: false, omitido: false, notas: "", virtual: true });
+  }
+  return [...reales, ...copias].filter((g) => !g.omitido).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+function totalesGastos(lista) {
+  const res = {};
+  for (const g of lista) {
+    const t = (res[g.moneda] ??= { gastos: 0, pagado: 0, pendiente: 0, equipo: 0 });
+    if (CATEGORIAS[g.categoria].noResta) { t.equipo += g.monto; continue; }
+    t.gastos += g.monto;
+    if (g.pagado) t.pagado += g.monto; else t.pendiente += g.monto;
+  }
+  return res;
+}
+
+function bloqueGanancia(totTrabajos, gastosMes) {
+  if (estado.sesion?.soloLectura || !gastosMes.length) return "";
+  const tg = totalesGastos(gastosMes);
+  const html = Object.keys(tg).map((m) => {
+    const t = tg[m];
+    const neta = (totTrabajos[m]?.ingresos ?? 0) - t.gastos;
+    return `<div class="moneda-titulo">${MONEDA[m].nombre} · gastos 🔒</div>
+      <div class="cifras">
+        <div class="cifra"><small>Gastos del mes</small><b style="color:#C62828">− ${dinero(t.gastos, m)}</b></div>
+        <div class="cifra"><small>De esos, sin pagar</small><b style="color:#B26A00">${dinero(t.pendiente, m)}</b></div>
+        <div class="cifra neta"><small>Ganancia neta del mes (ingresos − gastos)</small><b style="color:${neta < 0 ? "#C62828" : "var(--menta-texto)"}">${dinero(neta, m)}</b></div>
+        ${t.equipo ? `<div class="cifra neta-equipo"><small>📷 Invertido en equipo (no se resta)</small><b style="color:var(--azul)">${dinero(t.equipo, m)}</b></div>` : ""}
+      </div>`;
+  }).join("");
+  // Barras por categoría (solo lo que se resta)
+  const porCat = {};
+  for (const g of gastosMes) if (!CATEGORIAS[g.categoria].noResta) porCat[g.categoria + "|" + g.moneda] = (porCat[g.categoria + "|" + g.moneda] ?? 0) + g.monto;
+  const filas = Object.entries(porCat).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
+    const [c, m] = k.split("|");
+    const pct = Math.max(3, Math.round((v / (tg[m]?.gastos || v)) * 100));
+    return `<div class="barra-cat"><span>${CATEGORIAS[c].emoji} ${CATEGORIAS[c].etiqueta}</span><b>${dinero(v, m)}</b>
+      <i><em style="width:${pct}%;background:${CATEGORIAS[c].barra}"></em></i></div>`;
+  }).join("");
+  return html + (filas ? `<h4 class="seccion">Gastos por categoría</h4>${filas}` : "");
+}
+
+function pintarGastos() {
+  const mes = estado.mesGastos;
+  const nombre = mes.toLocaleDateString("es-NI", { month: "long" });
+  $("#gastos-mes").textContent = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+  const delMes = gastosDelMes(iso(mes).slice(0, 7));
+  const tg = totalesGastos(delMes);
+  $("#gastos-totales").innerHTML = Object.keys(tg).length ? Object.keys(tg).map((m) => {
+    const t = tg[m];
+    return `<div class="total-gastos"><small>Gastos del mes · ${MONEDA[m].nombre} (se restan)</small><b>${dinero(t.gastos, m)}</b>
+      <span>Pagado ${dinero(t.pagado, m)} · Pendiente ${dinero(t.pendiente, m)}</span>
+      ${t.equipo ? `<div class="equipo">📷 Invertido en equipo: ${dinero(t.equipo, m)} <span>(no se resta)</span></div>` : ""}</div>`;
+  }).join("") : `<p class="vacio">No hay gastos este mes. Toca “+ Nuevo gasto” para agregar uno.</p>`;
+
+  const filtros = $("#gastos-filtros");
+  filtros.innerHTML = [["", "Todos"], ...Object.entries(CATEGORIAS).map(([k, c]) => [k, `${c.emoji} ${c.etiqueta}`])]
+    .map(([k, t]) => `<button class="chip-filtro${(estado.filtroGasto ?? "") === k ? " activo" : ""}" data-cat="${k}">${t}</button>`).join("");
+  filtros.querySelectorAll("button").forEach((b) => { b.onclick = () => { estado.filtroGasto = b.dataset.cat || null; pintarGastos(); }; });
+
+  const visibles = delMes.filter((g) => !estado.filtroGasto || g.categoria === estado.filtroGasto);
+  const pendientes = visibles.filter((g) => !g.pagado).sort((a, b) => (gastoVencido(b) - gastoVencido(a)) || a.fecha.localeCompare(b.fecha));
+  const pagados = visibles.filter((g) => g.pagado).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const lista = $("#lista-gastos");
+  lista.innerHTML = "";
+  const seccion = (titulo, color, gs) => {
+    if (!gs.length) return;
+    lista.insertAdjacentHTML("beforeend", `<h4 class="seccion" style="color:${color}">${titulo}</h4>`);
+    gs.forEach((g) => lista.appendChild(filaGasto(g)));
+  };
+  seccion("Pendientes", "#B26A00", pendientes);
+  seccion("Pagados", "var(--verde)", pagados);
+}
+
+function filaGasto(g) {
+  const c = CATEGORIAS[g.categoria];
+  const venc = gastoVencido(g);
+  const linea = [c.etiqueta, g.acreedor && `a: ${esc(g.acreedor)}`, (g.pagado ? "" : venc ? "venció " : "vence ") + fechaCorta(g.fecha),
+    g.repetir && "cada mes", g.comprobante && "🧾"].filter(Boolean).join(" · ");
+  const color = c.noResta ? "var(--azul)" : g.pagado ? "var(--verde)" : venc ? "#C62828" : "#B26A00";
+  const el = document.createElement("div");
+  el.className = "gasto" + (venc ? " vencido" : "");
+  el.innerHTML = `<div class="ic-cat" style="background:${c.fondo}">${c.emoji}</div>
+    <div class="info"><b>${esc(tituloGasto(g))}</b><div class="nota">${linea}</div></div>
+    <div class="monto"><b style="color:${color}">${dinero(g.monto, g.moneda)}</b>
+      ${c.noResta && g.pagado ? '<small style="color:var(--azul)">Inversión</small>' : g.pagado ? '<small style="color:var(--verde)">✓ Pagado</small>' : '<button class="btn pagado">Pagado</button>'}</div>`;
+  el.onclick = () => abrirGasto(g);
+  el.querySelector(".pagado")?.addEventListener("click", (e) => { e.stopPropagation(); guardarGasto({ ...g, pagado: true }); });
+  return el;
+}
+
+const colGastos = () => collection(db, "users", auth.currentUser.uid, "gastos");
+const colComprobantes = () => collection(db, "users", auth.currentUser.uid, "comprobantes");
+
+async function guardarGasto(g, imagen) {
+  if (estado.sesion.soloLectura) return;
+  const { id, virtual, ...datos } = g;
+  if (imagen === "") datos.comprobante = false;
+  else if (imagen) datos.comprobante = true;
+  await setDoc(doc(colGastos(), id), { ...datos, actualizado: Date.now() });
+  if (imagen === "") await deleteDoc(doc(colComprobantes(), id));
+  else if (imagen) await setDoc(doc(colComprobantes(), id), { imagen, actualizado: Date.now() });
+}
+
+async function borrarGasto(g, soloEsteMes) {
+  const serie = estado.gastos.filter((x) => x.serie === g.serie);
+  if (g.comprobante) await deleteDoc(doc(colComprobantes(), g.id));
+  if (soloEsteMes && (g.repetir || g.virtual)) return guardarGasto({ ...g, omitido: true, comprobante: false });
+  if (!g.virtual) await deleteDoc(doc(colGastos(), g.id));
+  if (g.repetir || g.virtual) {
+    for (const x of serie.filter((x) => x.fecha > g.fecha)) await deleteDoc(doc(colGastos(), x.id));
+    const previo = serie.filter((x) => x.fecha < g.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha)).pop();
+    if (previo?.repetir) await guardarGasto({ ...previo, repetir: false });
+  }
+}
+
+/** Reduce la captura a JPEG de menos de ~700 KB en base64 (un documento admite 1 MB). */
+async function comprimirCaptura(archivo) {
+  const img = await createImageBitmap(archivo);
+  for (const lado of [1400, 1050, 800, 600]) {
+    const escala = Math.min(1, lado / Math.max(img.width, img.height));
+    const lienzo = document.createElement("canvas");
+    lienzo.width = Math.round(img.width * escala);
+    lienzo.height = Math.round(img.height * escala);
+    lienzo.getContext("2d").drawImage(img, 0, 0, lienzo.width, lienzo.height);
+    for (const calidad of [0.8, 0.7, 0.6, 0.5]) {
+      const texto = lienzo.toDataURL("image/jpeg", calidad).split(",")[1];
+      if (texto.length < 700000) return texto;
+    }
+  }
+  return null;
+}
+
+const dlgGasto = $("#dlg-gasto");
+const formGasto = $("#form-gasto");
+let gastoEditando = null;
+let imagenGasto; // undefined = sin cambios, "" = quitar, texto = nueva
+
+formGasto.querySelector(".cats").innerHTML = Object.entries(CATEGORIAS)
+  .map(([k, c]) => `<label class="chip"><input type="radio" name="categoria" value="${k}">${c.emoji} ${c.etiqueta}</label>`).join("");
+
+function actualizarFormGasto() {
+  const cat = CATEGORIAS[formGasto.querySelector('[name="categoria"]:checked')?.value ?? "FIJOS"];
+  $("#campo-acreedor").classList.toggle("oculto", !cat.acreedor);
+  $("#aviso-equipo").classList.toggle("oculto", !cat.noResta);
+}
+formGasto.addEventListener("input", actualizarFormGasto);
+
+function mostrarMiniatura(base64) {
+  const mini = $("#mini-comprobante");
+  mini.innerHTML = base64 ? `<img src="data:image/jpeg;base64,${base64}" alt="Comprobante">` : "🧾";
+  mini.classList.toggle("con-imagen", !!base64);
+  $("#btn-quitar-captura").classList.toggle("oculto", !base64);
+  $("#btn-captura-texto").textContent = base64 ? "Cambiar captura" : "Adjuntar captura";
+}
+
+async function abrirGasto(g) {
+  gastoEditando = g;
+  imagenGasto = undefined;
+  formGasto.reset();
+  const ym = iso(estado.mesGastos).slice(0, 7);
+  const v = g ?? { categoria: "FIJOS", descripcion: "", acreedor: "", monto: "", moneda: localStorage.getItem("moneda") || "USD",
+    fecha: hoyISO().startsWith(ym) ? hoyISO() : `${ym}-01`, repetir: false, pagado: false, notas: "" };
+  $("#gasto-titulo").textContent = g ? "Editar gasto" : "Nuevo gasto";
+  formGasto.querySelector(`[name="categoria"][value="${v.categoria}"]`).checked = true;
+  formGasto.descripcion.value = v.descripcion;
+  formGasto.acreedor.value = v.acreedor;
+  formGasto.moneda.value = v.moneda;
+  formGasto.monto.value = v.monto;
+  formGasto.fecha.value = v.fecha;
+  formGasto.repetir.checked = v.repetir;
+  formGasto.pagado.checked = v.pagado;
+  formGasto.notas.value = v.notas;
+  $("#btn-borrar-gasto").classList.toggle("oculto", !g);
+  actualizarFormGasto();
+  mostrarMiniatura(null);
+  dlgGasto.showModal();
+  if (g?.comprobante) {
+    $("#mini-comprobante").textContent = "…";
+    const d = await getDoc(doc(colComprobantes(), g.id));
+    if (gastoEditando === g) mostrarMiniatura(d.data()?.imagen ?? null);
+  }
+}
+
+$("#gastos-ant").onclick = () => { estado.mesGastos = new Date(estado.mesGastos.getFullYear(), estado.mesGastos.getMonth() - 1, 1); pintarGastos(); };
+$("#gastos-sig").onclick = () => { estado.mesGastos = new Date(estado.mesGastos.getFullYear(), estado.mesGastos.getMonth() + 1, 1); pintarGastos(); };
+$("#btn-nuevo-gasto").onclick = () => abrirGasto(null);
+$("#btn-cancelar-gasto").onclick = () => dlgGasto.close();
+$("#btn-captura").onclick = () => $("#archivo-captura").click();
+$("#archivo-captura").onchange = async (e) => {
+  const archivo = e.target.files[0];
+  e.target.value = "";
+  if (!archivo) return;
+  $("#mini-comprobante").textContent = "…";
+  const texto = await comprimirCaptura(archivo).catch(() => null);
+  if (!texto) { alert("No se pudo leer la imagen."); mostrarMiniatura(null); return; }
+  imagenGasto = texto;
+  formGasto.pagado.checked = true;
+  mostrarMiniatura(texto);
+};
+$("#btn-quitar-captura").onclick = () => { imagenGasto = ""; mostrarMiniatura(null); };
+$("#mini-comprobante").onclick = () => {
+  const img = $("#mini-comprobante img");
+  if (!img) return;
+  $("#comprobante-grande").src = img.src;
+  $("#dlg-comprobante").showModal();
+};
+$("#dlg-comprobante").onclick = () => $("#dlg-comprobante").close();
+$("#btn-borrar-gasto").onclick = async () => {
+  const g = gastoEditando;
+  if (!g) return;
+  if (g.repetir || g.virtual) {
+    const r = prompt("Este gasto se repite cada mes.\nEscribe 1 para quitarlo solo de este mes, o 2 para quitarlo de este mes en adelante.");
+    if (r !== "1" && r !== "2") return;
+    await borrarGasto(g, r === "1");
+  } else {
+    if (!confirm("¿Borrar este gasto?")) return;
+    await borrarGasto(g, false);
+  }
+  dlgGasto.close();
+};
+formGasto.onsubmit = async (e) => {
+  e.preventDefault();
+  const monto = Number(formGasto.monto.value || 0);
+  if (!(monto > 0)) return;
+  const categoria = formGasto.querySelector('[name="categoria"]:checked').value;
+  const base = gastoEditando ?? { id: crypto.randomUUID(), comprobante: false, omitido: false };
+  const g = {
+    ...base,
+    serie: base.serie ?? base.id,
+    categoria,
+    descripcion: formGasto.descripcion.value.trim(),
+    acreedor: CATEGORIAS[categoria].acreedor ? formGasto.acreedor.value.trim() : "",
+    monto,
+    moneda: formGasto.moneda.value,
+    fecha: formGasto.fecha.value,
+    repetir: formGasto.repetir.checked,
+    pagado: formGasto.pagado.checked,
+    notas: formGasto.notas.value.trim(),
+  };
+  dlgGasto.close();
+  await guardarGasto(g, imagenGasto);
 };
