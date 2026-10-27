@@ -27,6 +27,8 @@ const estado = {
   dejarDeEscuchar: null,
   gastos: [],
   dejarDeEscucharGastos: null,
+  depositos: [],
+  dejarDeEscucharDepositos: null,
   mesGastos: primerDiaMes(new Date()),
   filtroGasto: null,
 };
@@ -170,6 +172,9 @@ onAuthStateChanged(auth, async (u) => {
   estado.dejarDeEscuchar?.();
   estado.dejarDeEscucharGastos?.();
   estado.dejarDeEscucharGastos = null;
+  estado.dejarDeEscucharDepositos?.();
+  estado.dejarDeEscucharDepositos = null;
+  estado.depositos = [];
   estado.gastos = [];
   if (!u) {
     $("#entrar").classList.remove("oculto");
@@ -203,6 +208,11 @@ onAuthStateChanged(auth, async (u) => {
       estado.gastos = snap.docs.map((d) => normalizarGasto(d.id, d.data()));
       pintar();
     }, (e) => alert("No se pudieron leer los gastos: " + e.message + "\nRevisa que las reglas de Firebase estén publicadas y recarga la página."));
+    // Depósitos LAFISE: los escribe el programa que lee los avisos del banco en Gmail
+    estado.dejarDeEscucharDepositos = onSnapshot(collection(db, "users", u.uid, "depositos"), (snap) => {
+      estado.depositos = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((d) => d.fecha && d.monto > 0);
+      pintar();
+    }, (e) => console.error("Depósitos:", e));
   }
   $("#entrar").classList.add("oculto");
   $("#app").classList.remove("oculto");
@@ -422,7 +432,7 @@ function pintarAgenda() {
   const prefijo = iso(mes).slice(0, 7);
   const delMes = estado.trabajos.filter((t) => t.fecha.startsWith(prefijo));
   $("#resumen-mes").innerHTML = `<h4>Resumen del mes · ${delMes.filter((t) => t.estado !== "NO_REALIZADO").length} trabajos</h4>` +
-    bloqueTotales(totalesPorMoneda(delMes), delMes, "mes") + bloqueGanancia(totalesPorMoneda(delMes), gastosDelMes(iso(mes).slice(0, 7)));
+    botonDepositos(prefijo) + bloqueTotales(totalesPorMoneda(delMes), delMes, "mes") + bloqueGanancia(totalesPorMoneda(delMes), gastosDelMes(iso(mes).slice(0, 7)));
 
   $("#dia-titulo").textContent = fechaLarga(estado.seleccion);
   const lista = $("#lista-dia");
@@ -659,6 +669,41 @@ function totalesGastos(lista) {
   }
   return res;
 }
+
+/** Botón verde con lo que ha caído en las cuentas LAFISE en el mes (solo el dueño). */
+function botonDepositos(ym) {
+  if (estado.sesion?.soloLectura) return "";
+  const delMes = estado.depositos.filter((d) => d.fecha.startsWith(ym));
+  const totales = {};
+  for (const d of delMes) totales[d.moneda] = (totales[d.moneda] ?? 0) + d.monto;
+  const montos = Object.keys(totales).length
+    ? Object.entries(totales).map(([m, v]) => `<b>${dinero(v, m)}</b>`).join("")
+    : `<b>${dinero(0, "USD")}</b>`;
+  return `<button class="btn-depositos" data-ym="${ym}">
+    <small>🏦 Depositado este mes · LAFISE 🔒</small>${montos}
+    <span>${delMes.length} ${delMes.length === 1 ? "transferencia" : "transferencias"} ›</span></button>`;
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".btn-depositos");
+  if (!b) return;
+  e.stopPropagation();
+  const lista = estado.depositos.filter((d) => d.fecha.startsWith(b.dataset.ym)).sort((x, y) => y.fecha.localeCompare(x.fecha));
+  $("#detalle-titulo").textContent = "Depósitos recibidos · LAFISE";
+  const cont = $("#detalle-lista");
+  cont.innerHTML = lista.length ? "" : `<p class="vacio">Todavía no ha caído ninguna transferencia este mes.</p>`;
+  for (const d of lista) {
+    cont.insertAdjacentHTML("beforeend", `<div class="detalle-fila"><div><b>${esc(d.de || "Transferencia")}</b>
+      <div class="nota">${fechaCorta(d.fecha.slice(0, 10))}${d.motivo ? " · " + esc(d.motivo) : ""}${d.referencia ? " · Ref. " + esc(d.referencia) : ""}</div></div>
+      <b style="color:var(--verde)">${dinero(d.monto, d.moneda)}</b></div>`);
+  }
+  const totales = {};
+  for (const d of lista) totales[d.moneda] = (totales[d.moneda] ?? 0) + d.monto;
+  for (const [m, v] of Object.entries(totales)) {
+    cont.insertAdjacentHTML("beforeend", `<div class="detalle-total"><span>Total ${MONEDA[m].nombre}</span><b>${dinero(v, m)}</b></div>`);
+  }
+  $("#dlg-detalle").showModal();
+});
 
 function bloqueGanancia(totTrabajos, gastosMes) {
   if (estado.sesion?.soloLectura || !gastosMes.length) return "";

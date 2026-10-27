@@ -26,6 +26,10 @@ service cloud.firestore {
       match /comprobantes/{id} {
         allow read, write: if esDueno(uid);
       }
+      // Depósitos LAFISE que lee el programa de Gmail: privados, solo el dueño
+      match /depositos/{id} {
+        allow read, write: if esDueno(uid);
+      }
     }
 
     // Invitaciones: el invitado busca aquí de quién son los datos que puede ver
