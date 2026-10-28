@@ -936,3 +936,90 @@ formGasto.onsubmit = async (e) => {
     alert("No se pudo guardar el gasto: " + err.message);
   }
 };
+
+// ---------- Selector de fecha propio: la semana empieza en domingo, como la agenda ----------
+// El calendario del navegador sigue la región del sistema (en muchos, lunes primero).
+// El campo de fecha original queda escondido y guarda el valor (yyyy-mm-dd).
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const valorNativo = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+function selectorFecha(input) {
+  input.type = "hidden";
+  input.removeAttribute("required");
+  const boton = document.createElement("button");
+  boton.type = "button";
+  boton.className = "campo-fecha";
+  input.after(boton);
+  const caja = document.createElement("div");
+  caja.className = "selector-fecha oculto";
+  boton.after(caja);
+  let mes = null;
+
+  const pintarBoton = () => {
+    const v = valorNativo.get.call(input);
+    if (!v) { boton.innerHTML = `<span class="vacio-fecha">Elegir fecha</span><i>📅</i>`; return; }
+    const [a, m, d] = v.split("-").map(Number);
+    boton.innerHTML = `<span>${DIAS_CORTOS[new Date(a, m - 1, d).getDay()]}, ${d} ${MESES_CORTOS[m - 1]} ${a}</span><i>📅</i>`;
+  };
+  // Cuando el código pone la fecha (al abrir un trabajo o gasto) se actualiza lo que se ve
+  Object.defineProperty(input, "value", {
+    get: () => valorNativo.get.call(input),
+    set: (v) => { valorNativo.set.call(input, v); pintarBoton(); },
+  });
+
+  const pintarCaja = () => {
+    const elegido = valorNativo.get.call(input);
+    const hoy = hoyISO();
+    const titulo = mes.toLocaleDateString("es-NI", { month: "long", year: "numeric" });
+    const inicio = new Date(mes.getFullYear(), mes.getMonth(), 1 - mes.getDay());
+    let dias = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+      const s = iso(d);
+      const clases = ["dia-sel"];
+      if (d.getMonth() !== mes.getMonth()) clases.push("fuera");
+      if (d.getDay() === 0) clases.push("domingo");
+      if (s === hoy) clases.push("hoy");
+      if (s === elegido) clases.push("elegido");
+      dias += `<button type="button" class="${clases.join(" ")}" data-fecha="${s}">${d.getDate()}</button>`;
+    }
+    caja.innerHTML = `<div class="sel-cab"><button type="button" class="sel-nav" data-mover="-1">‹</button>
+      <b>${titulo.charAt(0).toUpperCase() + titulo.slice(1)}</b><button type="button" class="sel-nav" data-mover="1">›</button></div>
+      <div class="sel-grilla">${["D", "L", "M", "M", "J", "V", "S"].map((x) => `<span>${x}</span>`).join("")}${dias}</div>
+      <div class="sel-pie"><button type="button" class="sel-hoy">Hoy</button></div>`;
+  };
+
+  const elegir = (s) => {
+    input.value = s;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    caja.classList.add("oculto");
+  };
+
+  boton.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!caja.classList.contains("oculto")) { caja.classList.add("oculto"); return; }
+    const v = valorNativo.get.call(input) || hoyISO();
+    const [a, m] = v.split("-").map(Number);
+    mes = new Date(a, m - 1, 1);
+    pintarCaja();
+    caja.classList.remove("oculto");
+  });
+  caja.addEventListener("click", (e) => {
+    e.preventDefault(); // que el clic no active la etiqueta del campo
+    e.stopPropagation(); // al cambiar de mes se redibuja y el clic no debe cerrarlo
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.mover) { mes = new Date(mes.getFullYear(), mes.getMonth() + Number(b.dataset.mover), 1); pintarCaja(); }
+    else if (b.dataset.fecha) elegir(b.dataset.fecha);
+    else if (b.classList.contains("sel-hoy")) elegir(hoyISO());
+  });
+  document.addEventListener("click", (e) => {
+    if (!caja.contains(e.target) && !boton.contains(e.target)) caja.classList.add("oculto");
+  });
+  pintarBoton();
+}
+
+document.querySelectorAll('dialog input[name="fecha"]').forEach(selectorFecha);

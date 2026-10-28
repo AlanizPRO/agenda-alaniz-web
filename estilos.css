@@ -376,3 +376,34 @@ html[data-tema="oscuro"] .total-gastos b { color: #F28B87; }
 html[data-tema="oscuro"] .total-gastos small { color: #F6B0AD; }
 html[data-tema="oscuro"] .chip-filtro { border-color: #333A45; }
 html[data-tema="oscuro"] .gasto .ic-cat { background: var(--suave) !important; }
+
+/* Selector de fecha propio (domingo primero) */
+dialog label:has(.campo-fecha) { position: relative; }
+.campo-fecha {
+  font: inherit; width: 100%; padding: 10px 12px; border: 1px solid #D5DBE5; border-radius: 10px; background: #fff;
+  color: var(--tinta); display: flex; justify-content: space-between; align-items: center; cursor: pointer; text-align: left;
+}
+.campo-fecha i { font-style: normal; font-size: 14px; }
+.campo-fecha .vacio-fecha { color: var(--gris); }
+.selector-fecha {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 20; width: 290px; padding: 12px;
+  background: #fff; border: 1px solid var(--borde); border-radius: 16px; box-shadow: 0 10px 30px rgba(27, 36, 51, .18);
+}
+.sel-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--tinta); font-size: 15px; }
+.sel-nav { border: 0; background: var(--suave); color: var(--tinta); width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+.sel-grilla { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.sel-grilla span {
+  text-align: center; font-size: 12px; font-weight: 600; color: var(--menta-texto, #1B6B47); background: var(--menta, #E2F4EB); padding: 5px 0;
+}
+.sel-grilla span:first-child { border-radius: 8px 0 0 8px; }
+.sel-grilla span:nth-child(7) { border-radius: 0 8px 8px 0; }
+.dia-sel { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--tinta); height: 34px; border-radius: 9px; cursor: pointer; }
+.dia-sel.domingo { background: var(--celeste, #D4ECFA); }
+.dia-sel.fuera { opacity: .4; }
+.dia-sel:hover { background: var(--azul-claro); }
+.dia-sel.hoy { box-shadow: inset 0 0 0 1.5px var(--azul); font-weight: 700; }
+.dia-sel.elegido { background: var(--azul); color: #fff; font-weight: 700; }
+.sel-pie { display: flex; justify-content: flex-end; margin-top: 6px; }
+.sel-hoy { border: 0; background: none; color: var(--azul); font: inherit; font-weight: 600; cursor: pointer; padding: 4px 6px; }
+html[data-tema="oscuro"] .campo-fecha { background: var(--suave); border-color: #333A45; }
+html[data-tema="oscuro"] .selector-fecha { background: #161A21; border-color: #333A45; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
