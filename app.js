@@ -1023,3 +1023,14 @@ function selectorFecha(input) {
 }
 
 document.querySelectorAll('dialog input[name="fecha"]').forEach(selectorFecha);
+
+// Cerrar las ventanas flotantes al tocar fuera de ellas
+document.querySelectorAll("dialog").forEach(d => {
+  let fuera = false;
+  d.addEventListener("pointerdown", e => { fuera = e.target === d && afueraDe(d, e); });
+  d.addEventListener("click", e => { if (fuera && e.target === d && afueraDe(d, e)) d.close(); fuera = false; });
+});
+function afueraDe(d, e) {
+  const r = d.getBoundingClientRect();
+  return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+}
