@@ -542,6 +542,7 @@ function abrirFormulario(t, fecha) {
   form.pagado.checked = v.pagado;
   form.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = lectura; });
   $("#btn-guardar").classList.toggle("oculto", lectura);
+  $("#form-auto").textContent = "";
   $("#btn-borrar").classList.toggle("oculto", lectura || !t);
   actualizarSaldo();
   dlg.showModal();
@@ -588,8 +589,34 @@ $("#btn-borrar").onclick = async () => {
     dlg.close();
   }
 };
+// Guardado automático: al escribir, guarda sola unos segundos después (no hace falta tocar Guardar)
+let timerAutoguardar = null;
+function autoguardar() {
+  if (estado.sesion.soloLectura || !dlg.open) return;
+  clearTimeout(timerAutoguardar);
+  timerAutoguardar = setTimeout(async () => {
+    if (!dlg.open) return;
+    if (!form.cliente.value.trim() || !form.fecha.value) {
+      $("#form-auto").textContent = "Escribe el cliente y la fecha para que se guarde solo.";
+      return;
+    }
+    const t = leerFormulario();
+    try {
+      await guardar(t);
+      editando = t;
+      const hora = new Date().toLocaleTimeString("es-NI", { hour: "2-digit", minute: "2-digit" });
+      $("#form-auto").textContent = `Guardado automáticamente a las ${hora}`;
+    } catch (err) {
+      $("#form-auto").textContent = "No se pudo guardar: " + err.message;
+    }
+  }, 1200);
+}
+form.addEventListener("input", autoguardar);
+form.addEventListener("change", autoguardar);
+
 form.onsubmit = async (e) => {
   e.preventDefault();
+  clearTimeout(timerAutoguardar);
   if (estado.sesion.soloLectura) return;
   const t = leerFormulario();
   localStorage.setItem("moneda", t.moneda);
