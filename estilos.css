@@ -407,3 +407,13 @@ dialog label:has(.campo-fecha) { position: relative; }
 .sel-hoy { border: 0; background: none; color: var(--azul); font: inherit; font-weight: 600; cursor: pointer; padding: 4px 6px; }
 html[data-tema="oscuro"] .campo-fecha { background: var(--suave); border-color: #333A45; }
 html[data-tema="oscuro"] .selector-fecha { background: #161A21; border-color: #333A45; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+
+/* ---------- Hoy en rosa (para distinguirlo fácil del azul de los trabajos) ---------- */
+:root { --rosa: #E91E63; --rosa-claro: #FCE4EC; }
+.calendario .dia.hoy, .calendario .dia.hoy.domingo, .calendario .dia.hoy.sel { background: var(--rosa-claro); box-shadow: inset 0 0 0 2px var(--rosa); }
+.calendario .dia.hoy:hover { background: #F8D3E0; }
+.calendario .dia.hoy .num { background: var(--rosa); color: #fff; font-weight: 700; }
+.dia-sel.hoy { box-shadow: inset 0 0 0 2px var(--rosa); color: var(--rosa); font-weight: 700; }
+.dia-sel.hoy.elegido { background: var(--rosa); color: #fff; }
+.sel-hoy { color: var(--rosa); }
+html[data-tema="oscuro"] .calendario .dia.hoy { background: #4A1F2E; }
