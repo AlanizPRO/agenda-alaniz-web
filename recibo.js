@@ -34,8 +34,11 @@ function cargarLogo() {
   return logo;
 }
 
+function tipo0(t, u) { return t.pagado ? "PAGO" : u.fechaCobro(t) < u.hoy() ? "VENCIDO" : "COBRO"; }
+
 /** Dibuja el recibo; `u` trae las reglas de la app (saldo, fechaCobro, hoy, dinero, tiposTexto, modalidad). */
-export async function dibujarRecibo(t, u) {
+export async function dibujarRecibo(t, u, fechaPago = u.hoy()) {
+  const fechaMostrar = tipo0(t, u) === "VENCIDO" ? u.fechaCobro(t) : fechaPago;
   const tipo = t.pagado ? "PAGO" : u.fechaCobro(t) < u.hoy() ? "VENCIDO" : "COBRO";
   const lienzo = document.createElement("canvas");
   lienzo.width = ANCHO;
@@ -84,7 +87,7 @@ export async function dibujarRecibo(t, u) {
     ["Cliente", t.cliente],
     ["Fecha del trabajo", fechaTexto(t.fecha)],
   ];
-  if (tipo !== "PAGO") filas.push([tipo === "VENCIDO" ? "Venció el" : "Fecha de pago", fechaTexto(u.fechaCobro(t))]);
+  if (tipo !== "PAGO") filas.push([tipo === "VENCIDO" ? "Venció el" : "Fecha de pago", fechaTexto(fechaMostrar)]);
   filas.push(["Estado", { PAGO: "Pagado", COBRO: "Pendiente", VENCIDO: "Vencido" }[tipo]]);
   for (const [e, v] of filas) { fila(e, v, y, e === "Estado" ? colorTipo : TINTA); y += 62; }
   y += 10;
@@ -129,8 +132,8 @@ export async function dibujarRecibo(t, u) {
 }
 
 /** Comparte el JPG (celular) o lo descarga (computadora). */
-export async function enviarRecibo(t, u) {
-  const { lienzo, tipo } = await dibujarRecibo(t, u);
+export async function enviarRecibo(t, u, fechaPago) {
+  const { lienzo, tipo } = await dibujarRecibo(t, u, fechaPago);
   const blob = await new Promise((ok) => lienzo.toBlob(ok, "image/jpeg", 0.92));
   const nombre = `recibo_${t.cliente.replace(/[^A-Za-z0-9]+/g, "_")}_${numeroRecibo(t)}.jpg`;
   const archivo = new File([blob], nombre, { type: "image/jpeg" });

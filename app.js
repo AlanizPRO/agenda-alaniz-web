@@ -97,6 +97,16 @@ const saldo = (t) => (t.pagado ? 0 : Math.max(0, t.precio - t.anticipo));
 const cobrado = (t) => (t.estado === "NO_REALIZADO" ? 0 : t.pagado ? t.precio : Math.min(t.anticipo, t.precio));
 const cobroAbierto = (t) => t.estado !== "NO_REALIZADO" && !t.pagado && t.precio > 0;
 const tiposTexto = (t) => Object.keys(TIPOS).filter((k) => t.tipos.includes(k)).map((k) => TIPOS[k]).join(" + ");
+/** Pregunta la fecha que saldrá en el recibo (por defecto, hoy). Devuelve "AAAA-MM-DD" o null. */
+function pedirFechaRecibo() {
+  return new Promise((ok) => {
+    const d = $("#dlg-fecha");
+    $("#fecha-recibo").value = hoyISO();
+    d.showModal();
+    d.addEventListener("close", () => ok(d.returnValue === "ok" && $("#fecha-recibo").value ? $("#fecha-recibo").value : null), { once: true });
+  });
+}
+
 const reglasRecibo = { saldo, fechaCobro, hoy: hoyISO, dinero, tiposTexto, modalidad: (t) => MODALIDAD[t.modalidad] };
 
 function totalesPorMoneda(lista) {
@@ -477,7 +487,7 @@ function pintarCobros() {
       <div class="cuando">${cuando}</div>${t.estado === "PENDIENTE" ? '<div class="nota">Falta confirmar si se realizó</div>' : ""}</div>
       <b>${dinero(saldo(t), t.moneda)}</b><button class="btn borde recibo" title="Enviar cobro al cliente">Cobro JPG</button>${estado.sesion.soloLectura ? "" : '<button class="btn pagado">Pagado</button>'}`;
     el.querySelector(".info").onclick = () => abrirFormulario(t);
-    el.querySelector(".recibo").onclick = () => enviarRecibo(t, reglasRecibo);
+    el.querySelector(".recibo").onclick = async () => { const f = await pedirFechaRecibo(); if (f) enviarRecibo(t, reglasRecibo, f); };
     const btn = el.querySelector(".pagado");
     if (btn) btn.onclick = () => guardar({ ...t, pagado: true });
     lista.appendChild(el);
@@ -582,7 +592,7 @@ function leerFormulario() {
 }
 
 $("#btn-cancelar").onclick = () => dlg.close();
-$("#btn-recibo").onclick = () => { if (form.cliente.value.trim()) enviarRecibo(leerFormulario(), reglasRecibo); };
+$("#btn-recibo").onclick = async () => { if (!form.cliente.value.trim()) return; const f = await pedirFechaRecibo(); if (f) enviarRecibo(leerFormulario(), reglasRecibo, f); };
 $("#btn-borrar").onclick = async () => {
   if (editando && confirm("¿Borrar este trabajo? También se quitará de Google Calendar cuando se sincronice el celular.")) {
     await borrar(editando);

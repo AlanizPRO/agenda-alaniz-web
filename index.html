@@ -103,6 +103,17 @@
     </main>
   </div>
 
+  <dialog id="dlg-fecha">
+    <form method="dialog" class="panel-dialogo">
+      <h3>Fecha del recibo</h3>
+      <p class="suave chico">Sale así en el recibo. Por defecto es hoy; cámbiala si quieres otra.</p>
+      <label>Fecha<input id="fecha-recibo" type="date"></label>
+      <div class="fila">
+        <button value="cancel" class="btn texto">Cancelar</button>
+        <button value="ok" class="btn primario">Generar recibo</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="dlg-trabajo">
     <form id="form-trabajo" method="dialog">
       <h3 id="form-titulo">Nuevo trabajo</h3>
