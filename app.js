@@ -462,6 +462,51 @@ function pintarAgenda() {
   });
 }
 
+/** Junta varios trabajos del mismo cliente en uno solo, para que el recibo salga con el total. */
+function unirTrabajos(lista) {
+  const orden = [...lista].sort((x, y) => x.fecha.localeCompare(y.fecha));
+  const primero = orden[0];
+  return {
+    uuid: primero.uuid,
+    cliente: primero.cliente,
+    titulo: `${orden.length} trabajos`,
+    fecha: primero.fecha,
+    horaInicio: null,
+    horaFin: null,
+    tipos: [...new Set(orden.flatMap((t) => t.tipos))],
+    modalidad: primero.modalidad,
+    precio: orden.reduce((s, t) => s + t.precio, 0),
+    moneda: primero.moneda,
+    anticipo: orden.reduce((s, t) => s + t.anticipo, 0),
+    notas: "",
+    estado: "REALIZADO",
+    pagado: false,
+  };
+}
+
+$("#btn-unificado").onclick = () => {
+  const abiertos = estado.trabajos.filter(cobroAbierto);
+  const clientes = [...new Set(abiertos.map((t) => t.cliente.trim()))];
+  $("#uni-cliente").innerHTML = clientes.map((c) => `<option>${esc(c)}</option>`).join("");
+  const pintar = () => {
+    const c = $("#uni-cliente").value;
+    $("#uni-lista").innerHTML = abiertos.filter((t) => t.cliente.trim() === c).map((t) =>
+      `<label class="fila"><input type="checkbox" value="${t.uuid}" checked> <span>${fechaCorta(t.fecha)} · ${esc(t.titulo || MODALIDAD[t.modalidad] || "")}</span> <b>${dinero(saldo(t), t.moneda)}</b></label>`).join("");
+  };
+  $("#uni-cliente").onchange = pintar;
+  pintar();
+  $("#dlg-unificado").showModal();
+};
+$("#uni-generar").onclick = async () => {
+  const marcados = [...$("#uni-lista").querySelectorAll("input:checked")].map((i) => i.value);
+  const lista = estado.trabajos.filter((t) => marcados.includes(t.uuid));
+  if (!lista.length) return;
+  if (new Set(lista.map((t) => t.moneda)).size > 1) { alert("Todos los trabajos deben tener la misma moneda."); return; }
+  $("#dlg-unificado").close();
+  const f = await pedirFechaRecibo();
+  if (f) enviarRecibo(unirTrabajos(lista), reglasRecibo, f);
+};
+
 function pintarCobros() {
   const hoy = hoyISO();
   const abiertos = estado.trabajos.filter(cobroAbierto).sort((a, b) => fechaCobro(a).localeCompare(fechaCobro(b)));

@@ -77,6 +77,7 @@
       <section id="vista-cobros" class="vista angosta oculto">
         <p class="nota">Cada cobro vence 15 días después del trabajo.</p>
         <div id="cobros-totales" class="cifras"></div>
+        <p><button id="btn-unificado" class="btn borde">Cobro unificado (varios trabajos, un solo recibo)</button></p>
         <div id="lista-cobros" class="lista"></div>
       </section>
 
@@ -103,6 +104,18 @@
     </main>
   </div>
 
+  <dialog id="dlg-unificado">
+    <form method="dialog" class="panel-dialogo">
+      <h3>Cobro unificado</h3>
+      <p class="suave chico">Marca los trabajos del mismo cliente que van en un solo recibo.</p>
+      <label>Cliente<select id="uni-cliente"></select></label>
+      <div id="uni-lista"></div>
+      <div class="fila">
+        <button value="cancel" class="btn texto">Cancelar</button>
+        <button id="uni-generar" type="button" class="btn primario">Continuar</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="dlg-fecha">
     <form method="dialog" class="panel-dialogo">
       <h3>Fecha del recibo</h3>
