@@ -19,6 +19,15 @@ service cloud.firestore {
         allow write: if esDueno(uid);
       }
 
+      // Teléfonos que reciben avisos: el dueño, o un lector con su propio correo
+      match /tokens/{id} {
+        allow read: if false; // solo lo lee la función
+        allow create, update: if esDueno(uid)
+          || (esLector(uid) && request.resource.data.email == request.auth.token.email);
+        allow delete: if esDueno(uid)
+          || (esLector(uid) && resource.data.email == request.auth.token.email);
+      }
+
       // Gastos y capturas de pago: privados, solo el dueño
       match /gastos/{id} {
         allow read, write: if esDueno(uid);
