@@ -1129,13 +1129,75 @@ const PASOS_PROFORMA = [
   { campo: "anticipo", pregunta: "¿Anticipo para reservar?", tipo: "number", ayuda: "Opcional. Déjalo vacío si no hay." },
   { campo: "nota", pregunta: "¿Alguna nota para el cliente?", tipo: "textarea", ayuda: "Opcional. Ej. Incluye 30 fotos editadas." },
 ];
-const proforma = { paso: 0, datos: {} };
+const proforma = { paso: 0, datos: {}, borrador: null };
+
+// Borradores: se guardan en este aparato, para terminarlos cuando se tengan los datos que faltan.
+const CLAVE_BORRADORES = "proformas-borradores";
+function leerBorradores() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_BORRADORES)) || []; } catch { return []; }
+}
+function escribirBorradores(lista) {
+  try { localStorage.setItem(CLAVE_BORRADORES, JSON.stringify(lista)); } catch { /* sin espacio o bloqueado */ }
+}
+function guardarBorrador() {
+  const lista = leerBorradores().filter((b) => b.id !== proforma.borrador);
+  proforma.borrador ||= "b" + Date.now();
+  lista.unshift({ id: proforma.borrador, guardado: Date.now(), paso: proforma.paso, datos: proforma.datos });
+  escribirBorradores(lista);
+}
+function quitarBorrador(id) { escribirBorradores(leerBorradores().filter((b) => b.id !== id)); }
+// Guarda el valor escrito en la pregunta actual (aunque falten datos)
+function tomarValorActual() {
+  const p = PASOS_PROFORMA[proforma.paso];
+  const campo = $("#pf-valor");
+  if (!p || !campo) return;
+  let v = campo.value.trim();
+  if (p.tipo === "number") v = v === "" ? "" : Number(v);
+  proforma.datos[p.campo] = v;
+}
+
+function pintarBorradores() {
+  const lista = leerBorradores();
+  proforma.paso = -1;
+  $("#pf-vista").classList.add("oculto");
+  $("#pf-atras").classList.add("oculto");
+  $("#pf-borrador").classList.add("oculto");
+  $("#pf-paso").textContent = "Tienes proformas sin terminar";
+  $("#pf-ayuda").textContent = "Continúa un borrador o empieza una proforma nueva.";
+  $("#pf-siguiente").textContent = "Nueva proforma";
+  $("#pf-pregunta").innerHTML = lista.map((b) => `
+    <div class="fila" style="align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #E5E7EB">
+      <span style="flex:1"><b>${esc(b.datos.cliente || "Sin cliente")}</b><br><small class="suave">${esc(b.datos.servicio || "Sin servicio")} · guardado ${new Date(b.guardado).toLocaleDateString("es-NI", { day: "numeric", month: "short" })}</small></span>
+      <button type="button" class="btn primario" data-seguir="${b.id}">Continuar</button>
+      <button type="button" class="btn texto rojo" data-borrar="${b.id}">Borrar</button>
+    </div>`).join("");
+  $("#pf-pregunta").querySelectorAll("[data-seguir]").forEach((el) => el.onclick = () => {
+    const b = leerBorradores().find((x) => x.id === el.dataset.seguir);
+    if (!b) return;
+    proforma.borrador = b.id;
+    proforma.datos = { moneda: "USD", ...b.datos };
+    proforma.paso = Math.min(b.paso ?? 0, PASOS_PROFORMA.length - 1);
+    pintarPasoProforma();
+  });
+  $("#pf-pregunta").querySelectorAll("[data-borrar]").forEach((el) => el.onclick = () => {
+    quitarBorrador(el.dataset.borrar);
+    if (leerBorradores().length) pintarBorradores(); else empezarProforma();
+  });
+}
+function empezarProforma() {
+  proforma.paso = 0;
+  proforma.borrador = null;
+  proforma.datos = { moneda: "USD" };
+  pintarPasoProforma();
+}
 
 function fechaProforma(s) { return s.split("-").reverse().join("/"); }
 function dineroProforma(n) { return dinero(n, proforma.datos.moneda); }
 
 function pintarPasoProforma() {
   const fin = proforma.paso >= PASOS_PROFORMA.length;
+  $("#pf-atras").classList.remove("oculto");
+  $("#pf-borrador").classList.remove("oculto");
   $("#pf-vista").classList.toggle("oculto", !fin);
   $("#pf-atras").disabled = proforma.paso === 0;
   if (fin) {
@@ -1161,7 +1223,7 @@ function pintarPasoProforma() {
     control = `<input id="pf-valor" type="${p.tipo}" ${p.lista ? `list="${p.lista}"` : ""} ${extra} ${p.requerido ? "required" : ""} autocomplete="off" value="${esc(String(valor))}">`;
   }
   $("#pf-pregunta").innerHTML = `<label>${p.pregunta}${control}</label>`;
-  setTimeout(() => $("#pf-valor").focus(), 50);
+  setTimeout(() => $("#pf-valor")?.focus(), 50);
 }
 
 async function numeroProforma() {
@@ -1189,15 +1251,27 @@ async function vistaProforma() {
 }
 
 $("#btn-proforma").onclick = () => {
-  proforma.paso = 0;
-  proforma.datos = { moneda: "USD" };
-  pintarPasoProforma();
+  if (leerBorradores().length) pintarBorradores(); else empezarProforma();
   $("#dlg-proforma").showModal();
 };
-$("#pf-atras").onclick = () => { if (proforma.paso > 0) { proforma.paso--; pintarPasoProforma(); } };
+$("#pf-atras").onclick = () => { if (proforma.paso > 0) { tomarValorActual(); proforma.paso--; pintarPasoProforma(); } };
+$("#pf-borrador").onclick = () => {
+  tomarValorActual();
+  guardarBorrador();
+  $("#dlg-proforma").close();
+  alertaCorta("Borrador guardado. Lo encuentras al tocar Proforma.");
+};
+function alertaCorta(texto) {
+  const a = document.createElement("div");
+  a.textContent = texto;
+  a.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1F2937;color:#fff;padding:12px 18px;border-radius:12px;z-index:9999;font-size:14px;max-width:90vw";
+  document.body.appendChild(a);
+  setTimeout(() => a.remove(), 3500);
+}
 $("#form-proforma").addEventListener("submit", async (e) => {
   if (e.submitter?.value === "cancel") return;
   e.preventDefault();
+  if (proforma.paso === -1) { empezarProforma(); return; }
   if (proforma.paso < PASOS_PROFORMA.length) {
     const p = PASOS_PROFORMA[proforma.paso];
     const campo = $("#pf-valor");
@@ -1206,6 +1280,7 @@ $("#form-proforma").addEventListener("submit", async (e) => {
     if (p.tipo === "number") v = v === "" ? 0 : Number(v);
     proforma.datos[p.campo] = v;
     proforma.paso++;
+    if (proforma.borrador) guardarBorrador();
     pintarPasoProforma();
     if (proforma.paso === PASOS_PROFORMA.length) await vistaProforma();
     return;
@@ -1219,6 +1294,7 @@ $("#form-proforma").addEventListener("submit", async (e) => {
     setDoc(doc(db, "users", estado.sesion.duenoUid, "proformas", datos.numero),
       { ...datos, hechaPor: estado.sesion.email, creada: Date.now() }).catch(() => {});
     await enviarProforma(datos, dineroProforma, fechaProforma);
+    if (proforma.borrador) quitarBorrador(proforma.borrador);
     $("#dlg-proforma").close();
   } finally {
     boton.disabled = false;
