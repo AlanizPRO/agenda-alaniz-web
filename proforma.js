@@ -61,6 +61,29 @@ export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
     while (s.length > 1 && medir(s + "…", tam, peso) > ancho) s = s.slice(0, -1);
     return s + "…";
   };
+  // Parte un texto en renglones que caben en el ancho (respeta los saltos de línea que escribió la persona)
+  const renglones = (s, tam, peso, ancho) => {
+    const salida = [];
+    for (const parrafo of String(s).split(/\n/)) {
+      let actual = "";
+      for (const palabra of parrafo.split(/\s+/).filter(Boolean)) {
+        const prueba = actual ? actual + " " + palabra : palabra;
+        if (medir(prueba, tam, peso) <= ancho || !actual) actual = prueba;
+        else { salida.push(actual); actual = palabra; }
+      }
+      salida.push(actual);
+    }
+    return salida.map((r) => ajustar(r, tam, peso, ancho));
+  };
+  const parrafo = (s, x, y, tam, color, ancho, peso = 400, interlineado = 1.4, maxLineas = Infinity) => {
+    let lineas = renglones(s, tam, peso, ancho);
+    if (lineas.length > maxLineas) {
+      lineas = lineas.slice(0, Math.max(1, maxLineas));
+      lineas[lineas.length - 1] = ajustar(lineas[lineas.length - 1] + " …", tam, peso, ancho);
+    }
+    lineas.forEach((r, i) => texto(r, x, y + i * tam * interlineado, tam, color, "left", peso));
+    return lineas.length * tam * interlineado;
+  };
   const linea = (y, x1 = MARGEN, x2 = der, grosor = 2, color = LINEA) => { c.fillStyle = color; c.fillRect(x1, y, x2 - x1, grosor); };
   const caja = (x, y, w, h, r = 18) => { c.fillStyle = FONDO; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); };
 
@@ -91,8 +114,8 @@ export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
   y += 40;
   texto("CLIENTE", MARGEN, y, 22, GRIS, "left", 700);
   y += 34;
-  texto(ajustar(datos.cliente, 34, 700, der - MARGEN), MARGEN, y, 34, TINTA, "left", 700);
-  y += 70;
+  y += parrafo(datos.cliente, MARGEN, y, 34, TINTA, der - MARGEN, 700, 1.25);
+  y += 28;
 
   // Tabla de servicios
   const colFecha = MARGEN + 640, colImporte = der;
@@ -102,10 +125,10 @@ export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
   texto("Importe", colImporte - 24, y + 17, 24, TINTA, "right", 700);
   y += 58 + 26;
   const precio = formatoDinero(datos.precio);
-  texto(ajustar(datos.servicio, 28, 400, colFecha - MARGEN - 60), MARGEN + 24, y, 28, TINTA);
+  const altoServicio = parrafo(datos.servicio, MARGEN + 24, y, 28, TINTA, colFecha - MARGEN - 60);
   texto(datos.fechaTrabajo ? formatoFecha(datos.fechaTrabajo) : "Por definir", colFecha, y, 28, TINTA);
   texto(precio, colImporte - 24, y, 28, TINTA, "right", 700);
-  y += 60;
+  y += Math.max(60, altoServicio + 20);
   linea(y);
 
   // Totales a la derecha
@@ -122,17 +145,18 @@ export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
     total("Saldo", formatoDinero(datos.precio - datos.anticipo), true);
   }
 
-  // Nota para el cliente
+  // Nota para el cliente (sin pisar el cuadro de transferencia de abajo)
+  const altoCaja = 70 + CUENTAS.length * 44;
+  const topeNota = ALTO - 120 - altoCaja - 40;
   if (datos.nota) {
     y += 20;
     texto("NOTA", MARGEN, y, 22, GRIS, "left", 700);
     y += 34;
-    texto(ajustar(datos.nota, 26, 400, der - MARGEN), MARGEN, y, 26, TINTA);
-    y += 50;
+    const caben = Math.floor((topeNota - y) / (26 * 1.4));
+    y += parrafo(datos.nota, MARGEN, y, 26, TINTA, der - MARGEN, 400, 1.4, caben) + 20;
   }
 
   // Datos para transferencia, abajo
-  const altoCaja = 70 + CUENTAS.length * 44;
   let yb = ALTO - 120 - altoCaja;
   caja(MARGEN, yb, der - MARGEN, altoCaja);
   texto("Datos para transferencia", MARGEN + 32, yb + 26, 26, TINTA, "left", 700);

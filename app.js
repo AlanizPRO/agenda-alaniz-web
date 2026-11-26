@@ -1127,7 +1127,7 @@ const PASOS_PROFORMA = [
   { campo: "moneda", pregunta: "¿En qué moneda?", tipo: "moneda" },
   { campo: "precio", pregunta: "¿Precio total?", tipo: "number", requerido: true },
   { campo: "anticipo", pregunta: "¿Anticipo para reservar?", tipo: "number", ayuda: "Opcional. Déjalo vacío si no hay." },
-  { campo: "nota", pregunta: "¿Alguna nota para el cliente?", tipo: "text", ayuda: "Opcional. Ej. Incluye 30 fotos editadas." },
+  { campo: "nota", pregunta: "¿Alguna nota para el cliente?", tipo: "textarea", ayuda: "Opcional. Ej. Incluye 30 fotos editadas." },
 ];
 const proforma = { paso: 0, datos: {} };
 
@@ -1151,7 +1151,9 @@ function pintarPasoProforma() {
   $("#pf-ayuda").textContent = p.ayuda || "";
   $("#pf-siguiente").textContent = "Siguiente";
   let control;
-  if (p.tipo === "moneda") {
+  if (p.tipo === "textarea") {
+    control = `<textarea id="pf-valor" rows="5">${esc(String(valor))}</textarea>`;
+  } else if (p.tipo === "moneda") {
     control = `<select id="pf-valor">${Object.entries(MONEDA).map(([k, m]) =>
       `<option value="${k}" ${k === (valor || "USD") ? "selected" : ""}>${m.nombre} (${m.simbolo})</option>`).join("")}</select>`;
   } else {
