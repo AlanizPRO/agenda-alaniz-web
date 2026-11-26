@@ -1131,21 +1131,53 @@ const PASOS_PROFORMA = [
 ];
 const proforma = { paso: 0, datos: {}, borrador: null };
 
-// Borradores: se guardan en este aparato, para terminarlos cuando se tengan los datos que faltan.
+// Borradores: se guardan en Firebase para verlos en todos los aparatos (dueño y ventas).
+// Si Firebase todavía no da permiso, quedan guardados en este aparato y se suben cuando se pueda.
 const CLAVE_BORRADORES = "proformas-borradores";
-function leerBorradores() {
+const colBorradores = () => collection(db, "users", estado.sesion?.duenoUid || "-", "borradores");
+function leerLocales() {
   try { return JSON.parse(localStorage.getItem(CLAVE_BORRADORES)) || []; } catch { return []; }
 }
-function escribirBorradores(lista) {
+function escribirLocales(lista) {
   try { localStorage.setItem(CLAVE_BORRADORES, JSON.stringify(lista)); } catch { /* sin espacio o bloqueado */ }
 }
-function guardarBorrador() {
-  const lista = leerBorradores().filter((b) => b.id !== proforma.borrador);
-  proforma.borrador ||= "b" + Date.now();
-  lista.unshift({ id: proforma.borrador, guardado: Date.now(), paso: proforma.paso, datos: proforma.datos });
-  escribirBorradores(lista);
+async function subirBorrador(b) {
+  try {
+    await setDoc(doc(colBorradores(), b.id), { ...b, subido: true });
+    escribirLocales(leerLocales().map((x) => (x.id === b.id && x.guardado === b.guardado ? { ...x, subido: true } : x)));
+  } catch { /* sin permiso todavía: queda en este aparato */ }
 }
-function quitarBorrador(id) { escribirBorradores(leerBorradores().filter((b) => b.id !== id)); }
+async function leerBorradores() {
+  const locales = leerLocales();
+  let nube = null;
+  try { nube = (await getDocs(colBorradores())).docs.map((d) => d.data()); } catch { /* sin permiso o sin internet */ }
+  let lista = locales;
+  if (nube) {
+    // Lo que ya se subió y ya no está en Firebase lo borraron en otro aparato
+    const enNube = new Set(nube.map((b) => b.id));
+    const vivos = locales.filter((b) => !b.subido || enNube.has(b.id));
+    if (vivos.length !== locales.length) escribirLocales(vivos);
+    const porId = new Map();
+    for (const b of [...nube, ...vivos]) {
+      const a = porId.get(b.id);
+      if (!a || b.guardado > a.guardado) porId.set(b.id, b);
+    }
+    lista = [...porId.values()];
+    // Sube los que solo estaban en este aparato
+    vivos.filter((b) => !b.subido).forEach(subirBorrador);
+  }
+  return lista.sort((a, b) => b.guardado - a.guardado);
+}
+function guardarBorrador() {
+  proforma.borrador ||= "b" + Date.now();
+  const b = { id: proforma.borrador, guardado: Date.now(), paso: proforma.paso, datos: { ...proforma.datos }, hechoPor: estado.sesion?.email || "" };
+  escribirLocales([b, ...leerLocales().filter((x) => x.id !== b.id)]);
+  subirBorrador(b);
+}
+function quitarBorrador(id) {
+  escribirLocales(leerLocales().filter((b) => b.id !== id));
+  try { deleteDoc(doc(colBorradores(), id)).catch(() => {}); } catch { /* sin sesión */ }
+}
 // Guarda el valor escrito en la pregunta actual (aunque falten datos)
 function tomarValorActual() {
   const p = PASOS_PROFORMA[proforma.paso];
@@ -1156,8 +1188,7 @@ function tomarValorActual() {
   proforma.datos[p.campo] = v;
 }
 
-function pintarBorradores() {
-  const lista = leerBorradores();
+function pintarBorradores(lista) {
   proforma.paso = -1;
   $("#pf-vista").classList.add("oculto");
   $("#pf-atras").classList.add("oculto");
@@ -1172,7 +1203,7 @@ function pintarBorradores() {
       <button type="button" class="btn texto rojo" data-borrar="${b.id}">Borrar</button>
     </div>`).join("");
   $("#pf-pregunta").querySelectorAll("[data-seguir]").forEach((el) => el.onclick = () => {
-    const b = leerBorradores().find((x) => x.id === el.dataset.seguir);
+    const b = lista.find((x) => x.id === el.dataset.seguir);
     if (!b) return;
     proforma.borrador = b.id;
     proforma.datos = { moneda: "USD", ...b.datos };
@@ -1181,7 +1212,8 @@ function pintarBorradores() {
   });
   $("#pf-pregunta").querySelectorAll("[data-borrar]").forEach((el) => el.onclick = () => {
     quitarBorrador(el.dataset.borrar);
-    if (leerBorradores().length) pintarBorradores(); else empezarProforma();
+    const quedan = lista.filter((x) => x.id !== el.dataset.borrar);
+    if (quedan.length) pintarBorradores(quedan); else empezarProforma();
   });
 }
 function empezarProforma() {
@@ -1250,8 +1282,9 @@ async function vistaProforma() {
   $("#pf-vista").src = lienzo.toDataURL("image/jpeg", 0.85);
 }
 
-$("#btn-proforma").onclick = () => {
-  if (leerBorradores().length) pintarBorradores(); else empezarProforma();
+$("#btn-proforma").onclick = async () => {
+  const lista = await leerBorradores();
+  if (lista.length) pintarBorradores(lista); else empezarProforma();
   $("#dlg-proforma").showModal();
 };
 $("#pf-atras").onclick = () => { if (proforma.paso > 0) { tomarValorActual(); proforma.paso--; pintarPasoProforma(); } };

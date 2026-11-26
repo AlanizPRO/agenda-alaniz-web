@@ -24,6 +24,10 @@ service cloud.firestore {
         allow read, create: if esDueno(uid) || esLector(uid);
         allow update, delete: if esDueno(uid);
       }
+      // Borradores de proforma: los ven y terminan el dueño y la cuenta de ventas
+      match /borradores/{id} {
+        allow read, write: if esDueno(uid) || esLector(uid);
+      }
       // Número consecutivo de proformas: solo puede subir de uno en uno
       match /contadores/{id} {
         allow read: if esDueno(uid) || esLector(uid);
