@@ -1124,6 +1124,7 @@ const PASOS_PROFORMA = [
   { campo: "cliente", pregunta: "¿Nombre del cliente?", tipo: "text", lista: "clientes-lista", requerido: true },
   { campo: "servicio", pregunta: "¿Qué servicio?", tipo: "text", lista: "servicios-lista", requerido: true, ayuda: "Elige uno o escríbelo. Ej. Boda civil." },
   { campo: "fechaTrabajo", pregunta: "¿Fecha del trabajo?", tipo: "date", ayuda: "Déjala vacía si aún no hay fecha." },
+  { campo: "horaInicio", pregunta: "¿Horario del trabajo?", tipo: "horario", ayuda: "Opcional. Pon la hora de inicio y, si la sabes, la de fin." },
   { campo: "moneda", pregunta: "¿En qué moneda?", tipo: "moneda" },
   { campo: "precio", pregunta: "¿Precio total?", tipo: "number", requerido: true },
   { campo: "anticipo", pregunta: "¿Anticipo para reservar?", tipo: "number", ayuda: "Opcional. Déjalo vacío si no hay." },
@@ -1186,6 +1187,7 @@ function tomarValorActual() {
   let v = campo.value.trim();
   if (p.tipo === "number") v = v === "" ? "" : Number(v);
   proforma.datos[p.campo] = v;
+  if (p.tipo === "horario") proforma.datos.horaFin = $("#pf-fin")?.value || "";
 }
 
 function pintarBorradores(lista) {
@@ -1245,7 +1247,14 @@ function pintarPasoProforma() {
   $("#pf-ayuda").textContent = p.ayuda || "";
   $("#pf-siguiente").textContent = "Siguiente";
   let control;
-  if (p.tipo === "textarea") {
+  if (p.tipo === "horario") {
+    control = `<div class="fila" style="gap:12px">
+      <label>Inicio<input id="pf-valor" type="time" value="${esc(String(proforma.datos.horaInicio || ""))}"></label>
+      <label>Fin<input id="pf-fin" type="time" value="${esc(String(proforma.datos.horaFin || ""))}"></label></div>`;
+    $("#pf-pregunta").innerHTML = `<p style="margin:0 0 6px">${p.pregunta}</p>${control}`;
+    setTimeout(() => $("#pf-valor")?.focus(), 50);
+    return;
+  } else if (p.tipo === "textarea") {
     control = `<textarea id="pf-valor" rows="5">${esc(String(valor))}</textarea>`;
   } else if (p.tipo === "moneda") {
     control = `<select id="pf-valor">${Object.entries(MONEDA).map(([k, m]) =>
@@ -1312,6 +1321,7 @@ $("#form-proforma").addEventListener("submit", async (e) => {
     let v = campo.value.trim();
     if (p.tipo === "number") v = v === "" ? 0 : Number(v);
     proforma.datos[p.campo] = v;
+    if (p.tipo === "horario") proforma.datos.horaFin = $("#pf-fin").value || "";
     proforma.paso++;
     if (proforma.borrador) guardarBorrador();
     pintarPasoProforma();

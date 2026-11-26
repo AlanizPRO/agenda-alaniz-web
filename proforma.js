@@ -37,6 +37,17 @@ export function sumarDias(iso, dias) {
   return d.toISOString().slice(0, 10);
 }
 
+/** "15:30" -> "3:30 p. m." */
+export function hora12(h) {
+  if (!h) return "";
+  const [hh, mm] = h.split(":").map(Number);
+  return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, "0")} ${hh < 12 ? "a. m." : "p. m."}`;
+}
+export function horarioTexto(inicio, fin) {
+  if (!inicio) return "";
+  return fin ? `${hora12(inicio)} a ${hora12(fin)}` : `Desde ${hora12(inicio)}`;
+}
+
 /** Dibuja la proforma en un canvas. datos: { numero, fecha, cliente, servicio, fechaTrabajo, precio, anticipo, nota } */
 export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
   // Hoja tamaño carta (8.5 x 11 pulgadas) a 150 puntos por pulgada.
@@ -127,8 +138,10 @@ export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
   const precio = formatoDinero(datos.precio);
   const altoServicio = parrafo(datos.servicio, MARGEN + 24, y, 28, TINTA, colFecha - MARGEN - 60);
   texto(datos.fechaTrabajo ? formatoFecha(datos.fechaTrabajo) : "Por definir", colFecha, y, 28, TINTA);
+  const horario = horarioTexto(datos.horaInicio, datos.horaFin);
+  if (horario) texto(horario, colFecha, y + 38, 22, GRIS);
   texto(precio, colImporte - 24, y, 28, TINTA, "right", 700);
-  y += Math.max(60, altoServicio + 20);
+  y += Math.max(horario ? 90 : 60, altoServicio + 20);
   linea(y);
 
   // Totales a la derecha
