@@ -19,6 +19,19 @@ service cloud.firestore {
         allow write: if esDueno(uid);
       }
 
+      // Proformas: las hace el dueño o la cuenta de ventas; solo el dueño las cambia o borra
+      match /proformas/{id} {
+        allow read, create: if esDueno(uid) || esLector(uid);
+        allow update, delete: if esDueno(uid);
+      }
+      // Número consecutivo de proformas: solo puede subir de uno en uno
+      match /contadores/{id} {
+        allow read: if esDueno(uid) || esLector(uid);
+        allow create: if (esDueno(uid) || esLector(uid)) && request.resource.data.ultimo == 1;
+        allow update: if (esDueno(uid) || esLector(uid))
+          && request.resource.data.ultimo == resource.data.ultimo + 1;
+      }
+
       // Teléfonos que reciben avisos: el dueño, o un lector con su propio correo
       match /tokens/{id} {
         allow read: if false; // solo lo lee la función

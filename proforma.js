@@ -12,9 +12,10 @@ const CUENTAS = [
 ];
 const VIGENCIA_DIAS = 5;
 
-const ANCHO = 1080;
-const MARGEN = 80;
-const TINTA = "#1F2937", GRIS = "#6B7280", LINEA = "#E5E7EB", FONDO = "#F3F6FA";
+const ANCHO = 1275; // carta a 150 ppp
+const ALTO = 1650;
+const MARGEN = 110;
+const TINTA = "#1F2937", GRIS = "#6B7280", LINEA = "#E5E7EB", FONDO = "#F3F6FA", AZUL = "#1565C0";
 const SANS = "Inter, Roboto, Arial, sans-serif";
 const SERIF = "Georgia, 'Times New Roman', serif";
 
@@ -38,88 +39,116 @@ export function sumarDias(iso, dias) {
 
 /** Dibuja la proforma en un canvas. datos: { numero, fecha, cliente, servicio, fechaTrabajo, precio, anticipo, nota } */
 export async function dibujarProforma(datos, formatoDinero, formatoFecha) {
+  // Hoja tamaño carta (8.5 x 11 pulgadas) a 150 puntos por pulgada.
   const lienzo = document.createElement("canvas");
   lienzo.width = ANCHO;
-  lienzo.height = 2400;
+  lienzo.height = ALTO;
   const c = lienzo.getContext("2d");
   c.fillStyle = "#fff";
-  c.fillRect(0, 0, ANCHO, lienzo.height);
+  c.fillRect(0, 0, ANCHO, ALTO);
   c.textBaseline = "top";
-  const der = ANCHO - MARGEN, centro = ANCHO / 2;
+  const der = ANCHO - MARGEN;
 
   const texto = (s, x, y, tam, color, alinear = "left", peso = 400, familia = SANS) => {
     c.font = `${peso} ${tam}px ${familia}`;
     c.fillStyle = color;
     c.textAlign = alinear;
     c.fillText(s, x, y);
-    return tam * 1.17;
   };
-  const linea = (y) => { c.fillStyle = LINEA; c.fillRect(MARGEN, y - 1.5, ANCHO - 2 * MARGEN, 3); return y; };
-  const fila = (etiqueta, valor, y, color, negrita = false) => {
-    texto(etiqueta, MARGEN, y, 34, negrita ? TINTA : GRIS, "left", negrita ? 700 : 400);
-    texto(valor, der, y, 34, color, "right", 700);
+  const medir = (s, tam, peso = 400) => { c.font = `${peso} ${tam}px ${SANS}`; return c.measureText(s).width; };
+  const ajustar = (s, tam, peso, ancho) => {
+    if (medir(s, tam, peso) <= ancho) return s;
+    while (s.length > 1 && medir(s + "…", tam, peso) > ancho) s = s.slice(0, -1);
+    return s + "…";
   };
+  const linea = (y, x1 = MARGEN, x2 = der, grosor = 2, color = LINEA) => { c.fillStyle = color; c.fillRect(x1, y, x2 - x1, grosor); };
+  const caja = (x, y, w, h, r = 18) => { c.fillStyle = FONDO; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); };
 
-  let y = 70;
+  // Encabezado: logo y datos de la empresa a la izquierda, título y número a la derecha
+  let y = 90;
   const img = await cargarLogo();
-  if (img) { c.drawImage(img, centro - 110, y, 220, 220); y += 250; }
-  y += texto(EMPRESA.toUpperCase(), centro, y, 64, TINTA, "center", 700, SERIF);
-  y += texto(LEMA, centro, y + 6, 30, GRIS, "center") + 6;
-  y += texto(TELEFONO, centro, y + 4, 32, GRIS, "center") + 4;
-  y += texto(RUC, centro, y + 4, 32, GRIS, "center") + 4;
-  y += 36;
-  linea(y);
+  const tamLogo = 170;
+  if (img) c.drawImage(img, MARGEN, y, tamLogo, tamLogo);
+  const xEmp = MARGEN + (img ? tamLogo + 32 : 0);
+  texto(EMPRESA.toUpperCase(), xEmp, y + 8, 44, TINTA, "left", 700, SERIF);
+  texto(LEMA, xEmp, y + 66, 24, GRIS);
+  texto(TELEFONO, xEmp, y + 100, 24, GRIS);
+  texto(RUC, xEmp, y + 134, 24, GRIS);
 
-  y += 50;
-  y += texto("Proforma", centro, y, 46, TINTA, "center", 700) + 40;
-  const filas = [
-    ["Número", datos.numero],
-    ["Fecha", formatoFecha(datos.fecha)],
-    ["Válida hasta", formatoFecha(sumarDias(datos.fecha, VIGENCIA_DIAS))],
-    ["Cliente", datos.cliente],
-    ["Fecha del trabajo", datos.fechaTrabajo ? formatoFecha(datos.fechaTrabajo) : "Por definir"],
-  ];
-  for (const [e, v] of filas) { fila(e, v, y, TINTA); y += 62; }
-  y += 10;
-  linea(y);
-
-  y += 56;
-  const precio = formatoDinero(datos.precio);
-  texto(datos.servicio, MARGEN, y, 40, TINTA, "left", 700);
-  texto(precio, der, y, 40, TINTA, "right", 700);
-  y += 80;
-  linea(y);
-
-  y += 56;
-  fila("Total", precio, y, TINTA, true); y += 62;
-  if (datos.anticipo > 0) {
-    fila("Anticipo para reservar", "-" + formatoDinero(datos.anticipo), y, TINTA); y += 62;
-    fila("Saldo", formatoDinero(datos.precio - datos.anticipo), y, TINTA, true); y += 62;
+  texto("PROFORMA", der, y + 4, 52, AZUL, "right", 700);
+  const info = [["No.", datos.numero], ["Fecha", formatoFecha(datos.fecha)], ["Válida hasta", formatoFecha(sumarDias(datos.fecha, VIGENCIA_DIAS))]];
+  let yi = y + 76;
+  for (const [e, v] of info) {
+    const wv = medir(v, 24, 700);
+    texto(v, der, yi, 24, TINTA, "right", 700);
+    texto(e, der - wv - 14, yi, 24, GRIS, "right");
+    yi += 34;
   }
-  if (datos.nota) { y += 20; y += texto(datos.nota, MARGEN, y, 30, GRIS) + 20; }
-  y += 40;
+  y += tamLogo + 50;
+  linea(y, MARGEN, der, 4, AZUL);
 
-  const alto = 100 + CUENTAS.length * 56;
-  c.fillStyle = FONDO;
-  c.beginPath(); c.roundRect(MARGEN, y, der - MARGEN, alto, 28); c.fill();
-  texto("Datos para transferencia", MARGEN + 40, y + 34, 32, TINTA, "left", 700);
-  let yc = y + 92;
-  for (const [e, v] of CUENTAS) { texto(e, MARGEN + 40, yc, 30, GRIS); texto(v, der - 40, yc, 30, TINTA, "right", 700); yc += 56; }
-  y += alto + 50;
-  y += texto(`Esta proforma es válida por ${VIGENCIA_DIAS} días.`, centro, y, 30, GRIS, "center");
+  // Cliente
+  y += 40;
+  texto("CLIENTE", MARGEN, y, 22, GRIS, "left", 700);
+  y += 34;
+  texto(ajustar(datos.cliente, 34, 700, der - MARGEN), MARGEN, y, 34, TINTA, "left", 700);
   y += 70;
 
-  const final = document.createElement("canvas");
-  final.width = ANCHO;
-  final.height = Math.round(y);
-  final.getContext("2d").drawImage(lienzo, 0, 0);
-  return final;
+  // Tabla de servicios
+  const colFecha = MARGEN + 640, colImporte = der;
+  caja(MARGEN, y, der - MARGEN, 58, 12);
+  texto("Descripción", MARGEN + 24, y + 17, 24, TINTA, "left", 700);
+  texto("Fecha del trabajo", colFecha, y + 17, 24, TINTA, "left", 700);
+  texto("Importe", colImporte - 24, y + 17, 24, TINTA, "right", 700);
+  y += 58 + 26;
+  const precio = formatoDinero(datos.precio);
+  texto(ajustar(datos.servicio, 28, 400, colFecha - MARGEN - 60), MARGEN + 24, y, 28, TINTA);
+  texto(datos.fechaTrabajo ? formatoFecha(datos.fechaTrabajo) : "Por definir", colFecha, y, 28, TINTA);
+  texto(precio, colImporte - 24, y, 28, TINTA, "right", 700);
+  y += 60;
+  linea(y);
+
+  // Totales a la derecha
+  y += 34;
+  const xEt = der - 560;
+  const total = (e, v, negrita = false, tam = 28) => {
+    texto(e, xEt, y, tam, negrita ? TINTA : GRIS, "left", negrita ? 700 : 400);
+    texto(v, colImporte - 24, y, tam, TINTA, "right", 700);
+    y += tam + 22;
+  };
+  total("Total", precio, true, 32);
+  if (datos.anticipo > 0) {
+    total("Anticipo para reservar", "-" + formatoDinero(datos.anticipo));
+    total("Saldo", formatoDinero(datos.precio - datos.anticipo), true);
+  }
+
+  // Nota para el cliente
+  if (datos.nota) {
+    y += 20;
+    texto("NOTA", MARGEN, y, 22, GRIS, "left", 700);
+    y += 34;
+    texto(ajustar(datos.nota, 26, 400, der - MARGEN), MARGEN, y, 26, TINTA);
+    y += 50;
+  }
+
+  // Datos para transferencia, abajo
+  const altoCaja = 70 + CUENTAS.length * 44;
+  let yb = ALTO - 120 - altoCaja;
+  caja(MARGEN, yb, der - MARGEN, altoCaja);
+  texto("Datos para transferencia", MARGEN + 32, yb + 26, 26, TINTA, "left", 700);
+  let yc = yb + 72;
+  for (const [e, v] of CUENTAS) { texto(e, MARGEN + 32, yc, 24, GRIS); texto(v, der - 32, yc, 24, TINTA, "right", 700); yc += 44; }
+
+  // Pie
+  linea(ALTO - 90);
+  texto(`Esta proforma es válida por ${VIGENCIA_DIAS} días a partir de su fecha. Gracias por su preferencia.`, ANCHO / 2, ALTO - 70, 22, GRIS, "center");
+  return lienzo;
 }
 
-/** Envuelve un JPG en un PDF de una página (letter, en proporción de la imagen). Sin librerías. */
+/** Envuelve un JPG en un PDF de una página tamaño carta (612 x 792 puntos). Sin librerías. */
 export function jpgAPdf(jpgBytes, anchoPx, altoPx) {
   const enc = new TextEncoder();
-  const ancho = 612, alto = Math.round(612 * altoPx / anchoPx);
+  const ancho = 612, alto = 792;
   const partes = [];
   const offs = [];
   let tam = 0;

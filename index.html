@@ -62,6 +62,7 @@
             <span id="leyenda-pago" class="oculto"><i class="cuadro m-pago"></i>Por pagar</span>
           </div>
           <span class="espacio"></span>
+          <button id="btn-proforma" class="btn borde">Proforma</button>
           <button id="btn-nuevo" class="btn primario">+ Nuevo trabajo</button>
         </div>
         <div class="agenda">
@@ -116,6 +117,23 @@
       </div>
     </form>
   </dialog>
+  <dialog id="dlg-proforma">
+    <form method="dialog" class="panel-dialogo" id="form-proforma">
+      <h3>Nueva proforma</h3>
+      <p id="pf-paso" class="suave chico"></p>
+      <div id="pf-pregunta"></div>
+      <p id="pf-ayuda" class="suave chico"></p>
+      <img id="pf-vista" class="oculto" alt="Vista previa de la proforma" style="width:100%;border-radius:12px;border:1px solid #E5E7EB">
+      <div class="fila">
+        <button type="button" id="pf-atras" class="btn texto">Atrás</button>
+        <button value="cancel" class="btn texto">Cancelar</button>
+        <button type="submit" id="pf-siguiente" class="btn primario">Siguiente</button>
+      </div>
+    </form>
+  </dialog>
+  <datalist id="servicios-lista">
+    <option value="Sesión de fotos"><option value="Boda"><option value="Quince años"><option value="Evento"><option value="Video"><option value="Fotos y video">
+  </datalist>
   <dialog id="dlg-fecha">
     <form method="dialog" class="panel-dialogo">
       <h3>Fecha del recibo</h3>

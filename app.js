@@ -3,10 +3,11 @@ import {
   getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getFirestore, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, setDoc,
+  getFirestore, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, runTransaction, setDoc,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
 import { enviarRecibo } from "./recibo.js";
+import { dibujarProforma, enviarProforma } from "./proforma.js";
 
 const DIAS_PARA_COBRO = 15;
 const TIPOS = { FOTO: "Fotos", VIDEO: "Video", EDICION: "Edición" };
@@ -1116,3 +1117,108 @@ function afueraDe(d, e) {
   const r = d.getBoundingClientRect();
   return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
 }
+
+// ---------- Proforma: preguntas una por una, al final PDF para WhatsApp o Gmail ----------
+// La puede hacer el dueño y también la cuenta de ventas (solo lectura de trabajos).
+const PASOS_PROFORMA = [
+  { campo: "cliente", pregunta: "¿Nombre del cliente?", tipo: "text", lista: "clientes-lista", requerido: true },
+  { campo: "servicio", pregunta: "¿Qué servicio?", tipo: "text", lista: "servicios-lista", requerido: true, ayuda: "Elige uno o escríbelo. Ej. Boda civil." },
+  { campo: "fechaTrabajo", pregunta: "¿Fecha del trabajo?", tipo: "date", ayuda: "Déjala vacía si aún no hay fecha." },
+  { campo: "moneda", pregunta: "¿En qué moneda?", tipo: "moneda" },
+  { campo: "precio", pregunta: "¿Precio total?", tipo: "number", requerido: true },
+  { campo: "anticipo", pregunta: "¿Anticipo para reservar?", tipo: "number", ayuda: "Opcional. Déjalo vacío si no hay." },
+  { campo: "nota", pregunta: "¿Alguna nota para el cliente?", tipo: "text", ayuda: "Opcional. Ej. Incluye 30 fotos editadas." },
+];
+const proforma = { paso: 0, datos: {} };
+
+function fechaProforma(s) { return s.split("-").reverse().join("/"); }
+function dineroProforma(n) { return dinero(n, proforma.datos.moneda); }
+
+function pintarPasoProforma() {
+  const fin = proforma.paso >= PASOS_PROFORMA.length;
+  $("#pf-vista").classList.toggle("oculto", !fin);
+  $("#pf-atras").disabled = proforma.paso === 0;
+  if (fin) {
+    $("#pf-paso").textContent = "Revisa la proforma";
+    $("#pf-pregunta").innerHTML = "";
+    $("#pf-ayuda").textContent = "Si está bien, toca Compartir PDF y elige WhatsApp o Gmail.";
+    $("#pf-siguiente").textContent = "Compartir PDF";
+    return;
+  }
+  const p = PASOS_PROFORMA[proforma.paso];
+  const valor = proforma.datos[p.campo] ?? "";
+  $("#pf-paso").textContent = `Pregunta ${proforma.paso + 1} de ${PASOS_PROFORMA.length}`;
+  $("#pf-ayuda").textContent = p.ayuda || "";
+  $("#pf-siguiente").textContent = "Siguiente";
+  let control;
+  if (p.tipo === "moneda") {
+    control = `<select id="pf-valor">${Object.entries(MONEDA).map(([k, m]) =>
+      `<option value="${k}" ${k === (valor || "USD") ? "selected" : ""}>${m.nombre} (${m.simbolo})</option>`).join("")}</select>`;
+  } else {
+    const extra = p.tipo === "number" ? 'inputmode="decimal" min="0" step="0.01"' : "";
+    control = `<input id="pf-valor" type="${p.tipo}" ${p.lista ? `list="${p.lista}"` : ""} ${extra} ${p.requerido ? "required" : ""} autocomplete="off" value="${esc(String(valor))}">`;
+  }
+  $("#pf-pregunta").innerHTML = `<label>${p.pregunta}${control}</label>`;
+  setTimeout(() => $("#pf-valor").focus(), 50);
+}
+
+async function numeroProforma() {
+  // Número consecutivo guardado en Firebase. Si no hay permiso todavía, usa fecha y hora para no repetirse.
+  try {
+    const ref = doc(db, "users", estado.sesion.duenoUid, "contadores", "proformas");
+    const n = await runTransaction(db, async (tx) => {
+      const actual = await tx.get(ref);
+      const siguiente = (actual.exists() ? actual.data().ultimo : 0) + 1;
+      tx.set(ref, { ultimo: siguiente });
+      return siguiente;
+    });
+    return "P-" + String(n).padStart(4, "0");
+  } catch {
+    const d = new Date();
+    const dos = (x) => String(x).padStart(2, "0");
+    return `P-${String(d.getFullYear()).slice(2)}${dos(d.getMonth() + 1)}${dos(d.getDate())}-${dos(d.getHours())}${dos(d.getMinutes())}`;
+  }
+}
+
+async function vistaProforma() {
+  const datos = { ...proforma.datos, numero: proforma.datos.numero || "(se asigna al compartir)", fecha: hoyISO() };
+  const lienzo = await dibujarProforma(datos, dineroProforma, fechaProforma);
+  $("#pf-vista").src = lienzo.toDataURL("image/jpeg", 0.85);
+}
+
+$("#btn-proforma").onclick = () => {
+  proforma.paso = 0;
+  proforma.datos = { moneda: "USD" };
+  pintarPasoProforma();
+  $("#dlg-proforma").showModal();
+};
+$("#pf-atras").onclick = () => { if (proforma.paso > 0) { proforma.paso--; pintarPasoProforma(); } };
+$("#form-proforma").addEventListener("submit", async (e) => {
+  if (e.submitter?.value === "cancel") return;
+  e.preventDefault();
+  if (proforma.paso < PASOS_PROFORMA.length) {
+    const p = PASOS_PROFORMA[proforma.paso];
+    const campo = $("#pf-valor");
+    if (!campo.reportValidity()) return;
+    let v = campo.value.trim();
+    if (p.tipo === "number") v = v === "" ? 0 : Number(v);
+    proforma.datos[p.campo] = v;
+    proforma.paso++;
+    pintarPasoProforma();
+    if (proforma.paso === PASOS_PROFORMA.length) await vistaProforma();
+    return;
+  }
+  // Último paso: número, guardar copia y compartir
+  const boton = $("#pf-siguiente");
+  boton.disabled = true;
+  try {
+    proforma.datos.numero ||= await numeroProforma();
+    const datos = { ...proforma.datos, fecha: hoyISO() };
+    setDoc(doc(db, "users", estado.sesion.duenoUid, "proformas", datos.numero),
+      { ...datos, hechaPor: estado.sesion.email, creada: Date.now() }).catch(() => {});
+    await enviarProforma(datos, dineroProforma, fechaProforma);
+    $("#dlg-proforma").close();
+  } finally {
+    boton.disabled = false;
+  }
+});
