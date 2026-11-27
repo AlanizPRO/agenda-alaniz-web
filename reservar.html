@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservas Dianas Films</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css?v=34">
+  <style>
+    body { background: #F3F6FA; }
+    .pc-cab { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border-bottom: 1px solid var(--borde); }
+    .pc-cab img { width: 40px; height: 40px; border-radius: 50%; }
+    .pc-cab b { font-size: 17px; }
+    .pc-cab .espacio { flex: 1; }
+    .pc-cab small { color: var(--gris); }
+    .pc-main { max-width: 760px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .pc-tarjeta { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 2px 10px rgba(21,101,192,.05); }
+    .pc-mes { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .pc-mes h2 { margin: 0; font-size: 20px; }
+    .pc-mes h2::first-letter { text-transform: uppercase; }
+    .pc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .pc-dsem { text-align: center; font-size: 12px; color: var(--gris); padding: 4px 0; }
+    .pc-dia { aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--borde); background: #fff; font: inherit; font-size: 15px; cursor: pointer; position: relative; color: var(--tinta); }
+    .pc-dia.vacio { visibility: hidden; }
+    .pc-dia.pasado { background: #F6F7F9; color: #B8BFCC; cursor: default; }
+    .pc-dia.tentativo { background: #FFE0B2; border-color: #FB8C00; color: #7A4100; }
+    .pc-dia.confirmado { background: #FFCDD2; border-color: #E53935; color: #8E1B17; }
+    .pc-dia.mia { box-shadow: inset 0 0 0 3px var(--azul); }
+    .pc-dia.hoy { font-weight: 700; text-decoration: underline; }
+    .pc-leyenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 13px; color: #5B6577; }
+    .pc-leyenda i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--borde); }
+    .pc-res { border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .pc-res .linea { display: flex; justify-content: space-between; gap: 10px; }
+    .pc-estado { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px; align-self: flex-start; }
+    .pc-estado.pendiente { background: var(--amarillo-claro); color: var(--amarillo-texto); }
+    .pc-estado.aprobada { background: var(--verde-claro); color: #1F6E4A; }
+    .pc-estado.rechazada, .pc-estado.cancelada { background: #FDE2E1; color: #9B2C28; }
+    .pc-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pc-acciones a { text-decoration: none; }
+    .servicios { display: flex; gap: 8px; flex-wrap: wrap; }
+    @media (max-width: 480px) { .pc-dia { font-size: 13px; border-radius: 8px; } .pc-main { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <div id="entrar" class="pantalla-entrar oculto">
+    <div class="tarjeta-entrar">
+      <div class="logo"></div>
+      <h1>Reservas</h1>
+      <p>Mira las fechas libres de Dianas Films y reserva la tuya.</p>
+      <form id="form-enlace" style="display:flex;flex-direction:column;gap:8px;width:100%">
+        <input id="correo-enlace" type="email" required placeholder="Tu correo" autocomplete="email">
+        <button class="btn primario">Recibir enlace para entrar</button>
+      </form>
+      <p id="aviso-enlace" class="suave chico"></p>
+      <p class="suave chico">o</p>
+      <button id="btn-entrar" class="btn borde">Entrar con Google</button>
+      <p id="error-entrar" class="error"></p>
+    </div>
+  </div>
+
+  <div id="sin-acceso" class="pantalla-entrar oculto">
+    <div class="tarjeta-entrar">
+      <div class="logo"></div>
+      <h1>Sin acceso</h1>
+      <p>El correo <b id="correo-sin-acceso"></b> todavía no tiene acceso a las reservas. Pídele a Dianas Films que te lo dé.</p>
+      <button id="btn-salir-2" class="btn borde">Entrar con otro correo</button>
+    </div>
+  </div>
+
+  <div id="app" class="oculto">
+    <header class="pc-cab">
+      <img src="logo-diana.png" alt="">
+      <div><b>Dianas Films</b><br><small id="saludo"></small></div>
+      <span class="espacio"></span>
+      <button id="btn-salir" class="btn texto">Salir</button>
+    </header>
+    <main class="pc-main">
+      <section class="pc-tarjeta">
+        <div class="pc-mes">
+          <button id="mes-ant" class="btn borde" aria-label="Mes anterior">‹</button>
+          <h2 id="mes-titulo"></h2>
+          <button id="mes-sig" class="btn borde" aria-label="Mes siguiente">›</button>
+        </div>
+        <div id="calendario" class="pc-grid"></div>
+        <div class="pc-leyenda">
+          <span><i style="background:#fff"></i>Libre: tócalo para reservar</span>
+          <span><i style="background:#FFE0B2;border-color:#FB8C00"></i>Reserva tentativa</span>
+          <span><i style="background:#FFCDD2;border-color:#E53935"></i>Confirmado</span>
+          <span><i style="box-shadow:inset 0 0 0 3px #1565C0"></i>Tu reserva</span>
+        </div>
+      </section>
+      <section class="pc-tarjeta">
+        <h3 style="margin:0 0 8px">Mis reservas</h3>
+        <div id="mis-reservas" class="lista"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="dlg-reservar">
+    <form id="form-reservar" method="dialog">
+      <h3>Reservar <span id="res-fecha-texto"></span></h3>
+      <div class="fila">
+        <label>Hora de inicio *<input name="horaInicio" type="time" required></label>
+        <label>Hora de fin<input name="horaFin" type="time"></label>
+      </div>
+      <label>Lugar *<input name="lugar" required placeholder="Ej. Hotel Real Intercontinental, Managua"></label>
+      <label>Cliente o marca *<input name="marca" required placeholder="Ej. Pulse"></label>
+      <fieldset class="servicios">
+        <legend>Servicios *</legend>
+        <label class="chip"><input type="checkbox" name="servicios" value="FOTO">Fotografía</label>
+        <label class="chip"><input type="checkbox" name="servicios" value="VIDEO">Video</label>
+        <label class="chip"><input type="checkbox" name="servicios" value="EDICION">Edición</label>
+      </fieldset>
+      <div class="fila">
+        <label>Moneda<select name="moneda"><option value="USD">US$ Dólares</option><option value="NIO">C$ Córdobas</option></select></label>
+        <label>Precio a pagar *<input name="precio" type="number" inputmode="decimal" min="1" step="0.01" required></label>
+      </div>
+      <label>Detalles (opcional)<textarea name="notas" rows="3" placeholder="Qué necesitas, número de personas, etc."></textarea></label>
+      <p id="res-error" class="error"></p>
+      <div class="fila">
+        <button value="cancel" class="btn texto" formnovalidate>Cancelar</button>
+        <button id="btn-enviar-reserva" class="btn primario">Enviar reserva</button>
+      </div>
+      <p class="suave chico">Dianas Films revisa tu solicitud y la aprueba. Te aparecerá aquí en "Mis reservas".</p>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-captura">
+    <form id="form-captura" method="dialog">
+      <h3>Enviar captura de transferencia</h3>
+      <p class="suave chico" id="captura-detalle"></p>
+      <input id="captura-archivo" type="file" accept="image/*" required>
+      <img id="captura-vista" class="oculto" alt="Vista previa" style="max-width:100%;border-radius:10px">
+      <p id="captura-error" class="error"></p>
+      <div class="fila">
+        <button value="cancel" class="btn texto" formnovalidate>Cancelar</button>
+        <button id="btn-enviar-captura" class="btn primario">Enviar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="reservar.js?v=2"></script>
+</body>
+</html>

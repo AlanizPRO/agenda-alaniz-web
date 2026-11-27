@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="estilos.css?v=33">
+  <link rel="stylesheet" href="estilos.css?v=34">
   <script>
     // Tema antes de pintar, para que no parpadee en blanco
     (function () {
@@ -38,6 +38,7 @@
         <button data-pestana="cobros">Cobros</button>
         <button data-pestana="gastos" class="oculto">Gastos</button>
         <button data-pestana="clientes">Clientes</button>
+        <button data-pestana="reservas" class="oculto">Reservas <span id="reservas-contador" class="contador oculto"></span></button>
       </nav>
       <div class="cuenta">
         <span id="correo"></span>
@@ -101,6 +102,21 @@
         <div id="total-general"></div>
         <input id="buscar" class="campo" placeholder="Buscar cliente">
         <div id="lista-clientes" class="lista"></div>
+      </section>
+
+      <section id="vista-reservas" class="vista angosta oculto">
+        <h4 class="seccion">Por aprobar</h4>
+        <div id="reservas-pendientes" class="lista"></div>
+        <h4 class="seccion">Aprobadas</h4>
+        <div id="reservas-aprobadas" class="lista"></div>
+        <h4 class="seccion">Clientes con acceso al portal</h4>
+        <p class="suave chico">Entran en <b id="enlace-portal"></b>. Escriben su correo y les llega un enlace para entrar (o entran con Google). Solo ven sus reservas y el color de los días (naranja tentativo, rojo confirmado).</p>
+        <form id="form-portal" class="fila">
+          <input name="email" type="email" class="campo" placeholder="correo@gmail.com" required>
+          <input name="nombre" class="campo" placeholder="Nombre o marca" required>
+          <button class="btn primario">Dar acceso</button>
+        </form>
+        <div id="lista-portal" class="lista"></div>
       </section>
     </main>
   </div>
@@ -180,6 +196,7 @@
         <label class="chip"><input type="radio" name="estado" value="REALIZADO">Realizado</label>
         <label class="chip"><input type="radio" name="estado" value="NO_REALIZADO">No realizado</label>
       </fieldset>
+      <label class="interruptor"><input type="checkbox" name="confirmado">Reserva confirmada (para tus clientes el día sale rojo; si no, naranja)</label>
       <label class="interruptor"><input type="checkbox" name="pagado">Pago completo recibido</label>
       <label>Notas<textarea name="notas" rows="3"></textarea></label>
       <p class="nota">Se agenda en Google Calendar la próxima vez que se sincronice tu celular.</p>
@@ -242,6 +259,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js?v=33"></script>
+  <script type="module" src="app.js?v=34"></script>
 </body>
 </html>

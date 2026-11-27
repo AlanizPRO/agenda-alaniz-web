@@ -102,6 +102,10 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 24px 60px; }
 .dia-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dia-cabecera h3 { margin: 0; font-size: 17px; }
 .lista { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.contador { background: #E53935; color: #fff; border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px; }
+.reserva { border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.reserva .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.reserva img { max-width: 220px; border-radius: 10px; border: 1px solid var(--borde); cursor: zoom-in; }
 .vacio { color: var(--gris); }
 
 .trabajo {

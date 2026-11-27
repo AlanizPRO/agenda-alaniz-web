@@ -10,6 +10,16 @@ service cloud.firestore {
            get(/databases/$(database)/documents/users/$(uid)).data.get('lectores', []);
     }
 
+    // Cliente con portal de reservas: lo da de alta el dueño en clientesPortal/{correo}
+    function correo() {
+      return request.auth.token.email.lower();
+    }
+    function esCliente(uid) {
+      return request.auth != null && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/clientesPortal/$(correo()))
+        && get(/databases/$(database)/documents/clientesPortal/$(correo())).data.owner == uid;
+    }
+
     match /users/{uid} {
       allow read: if esDueno(uid) || esLector(uid);
       allow write: if esDueno(uid);
@@ -52,10 +62,37 @@ service cloud.firestore {
       match /comprobantes/{id} {
         allow read, write: if esDueno(uid);
       }
+      // Días ocupados (sin detalles): solo "tentativo" o "confirmado". Los ven los clientes del portal.
+      match /ocupados/{fecha} {
+        allow read: if esDueno(uid) || esLector(uid) || esCliente(uid);
+        allow write: if esDueno(uid);
+      }
+      // Reservas que piden los clientes. Cada cliente ve y toca solo las suyas.
+      match /reservas/{id} {
+        allow read: if esDueno(uid) || esLector(uid)
+          || (esCliente(uid) && resource.data.clienteEmail == correo());
+        allow create: if esCliente(uid)
+          && request.resource.data.clienteEmail == correo()
+          && request.resource.data.estado == "pendiente";
+        allow update: if esDueno(uid)
+          || (esCliente(uid) && resource.data.clienteEmail == correo()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["comprobante", "comprobanteFecha"]));
+        allow delete: if esDueno(uid)
+          || (esCliente(uid) && resource.data.clienteEmail == correo() && resource.data.estado == "pendiente");
+      }
       // Depósitos LAFISE que lee el programa de Gmail: privados, solo el dueño
       match /depositos/{id} {
         allow read, write: if esDueno(uid);
       }
+    }
+
+    // Clientes del portal de reservas: el cliente lee el suyo; el dueño los da de alta
+    match /clientesPortal/{email} {
+      allow read: if request.auth != null && (correo() == email || resource.data.owner == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.owner == request.auth.uid;
+      allow update: if request.auth != null && resource.data.owner == request.auth.uid
+                    && request.resource.data.owner == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
     }
 
     // Invitaciones: el invitado busca aquí de quién son los datos que puede ver

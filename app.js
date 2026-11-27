@@ -3,7 +3,7 @@ import {
   getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getFirestore, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, runTransaction, setDoc,
+  getFirestore, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, query, runTransaction, setDoc, updateDoc, where,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { firebaseConfig } from "./config.js";
 import { enviarRecibo } from "./recibo.js";
@@ -142,6 +142,8 @@ function normalizar(id, d) {
     notas: d.notas ?? "",
     estado: d.estado ?? "PENDIENTE",
     pagado: !!d.pagado,
+    confirmado: !!d.confirmado,
+    reservaId: d.reservaId ?? "",
     actualizado: d.actualizado ?? 0,
   };
 }
@@ -185,6 +187,11 @@ onAuthStateChanged(auth, async (u) => {
   estado.dejarDeEscucharGastos = null;
   estado.dejarDeEscucharDepositos?.();
   estado.dejarDeEscucharDepositos = null;
+  (estado.dejarDeEscucharPortal || []).forEach((f) => f());
+  estado.dejarDeEscucharPortal = [];
+  estado.reservas = [];
+  estado.ocupados = {};
+  estado.clientesPortal = [];
   estado.depositos = [];
   estado.gastos = [];
   if (!u) {
@@ -224,7 +231,9 @@ onAuthStateChanged(auth, async (u) => {
       estado.depositos = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((d) => d.fecha && d.monto > 0);
       pintar();
     }, (e) => console.error("Depósitos:", e));
+    escucharPortal(u.uid);
   }
+  $('.pestanas [data-pestana="reservas"]').classList.toggle("oculto", sesion.soloLectura);
   $("#entrar").classList.add("oculto");
   $("#app").classList.remove("oculto");
 
@@ -234,6 +243,7 @@ onAuthStateChanged(auth, async (u) => {
       .map((d) => normalizar(d.id, d.data()))
       .sort((a, b) => (a.fecha + minutosAHora(a.horaInicio)).localeCompare(b.fecha + minutosAHora(b.horaInicio)));
     pintar();
+    if (!sesion.soloLectura) programarPortal();
   }, (e) => alert("No se pudieron leer los datos: " + e.message));
 });
 
@@ -261,7 +271,7 @@ document.querySelectorAll(".pestanas button").forEach((b) => {
   b.onclick = () => {
     estado.pestana = b.dataset.pestana;
     document.querySelectorAll(".pestanas button").forEach((x) => x.classList.toggle("activa", x === b));
-    for (const v of ["agenda", "cobros", "gastos", "clientes"]) $("#vista-" + v).classList.toggle("oculto", v !== estado.pestana);
+    for (const v of ["agenda", "cobros", "gastos", "clientes", "reservas"]) $("#vista-" + v).classList.toggle("oculto", v !== estado.pestana);
     pintar();
   };
 });
@@ -290,6 +300,7 @@ function pintar() {
   if (estado.pestana === "cobros") pintarCobros();
   if (estado.pestana === "clientes") pintarClientes();
   if (estado.pestana === "gastos") pintarGastos();
+  if (estado.pestana === "reservas") pintarReservas();
   $("#clientes-lista").innerHTML = [...new Set(estado.trabajos.map((t) => t.cliente.trim()))]
     .map((c) => `<option value="${esc(c)}">`).join("");
 }
@@ -596,6 +607,7 @@ function abrirFormulario(t, fecha) {
   form.notas.value = v.notas;
   form.querySelector(`[name="estado"][value="${v.estado}"]`).checked = true;
   form.pagado.checked = v.pagado;
+  form.confirmado.checked = !!v.confirmado;
   form.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = lectura; });
   $("#btn-guardar").classList.toggle("oculto", lectura);
   $("#form-auto").textContent = "";
@@ -634,6 +646,7 @@ function leerFormulario() {
     notas: form.notas.value.trim(),
     estado: form.querySelector('[name="estado"]:checked').value,
     pagado: form.pagado.checked,
+    confirmado: form.confirmado.checked,
   };
 }
 
@@ -1341,5 +1354,145 @@ $("#form-proforma").addEventListener("submit", async (e) => {
     $("#dlg-proforma").close();
   } finally {
     boton.disabled = false;
+  }
+});
+
+
+// ---------- Portal de clientes: reservas, días ocupados y accesos ----------
+const URL_PORTAL = "https://alanizpro.github.io/agenda-alaniz-web/reservar.html";
+const colReservas = () => collection(db, "users", estado.sesion.duenoUid, "reservas");
+const colOcupados = () => collection(db, "users", estado.sesion.duenoUid, "ocupados");
+
+function escucharPortal(uid) {
+  estado.dejarDeEscucharPortal = [
+    onSnapshot(collection(db, "users", uid, "reservas"), (snap) => {
+      estado.reservas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const pendientes = estado.reservas.filter((r) => r.estado === "pendiente").length;
+      $("#reservas-contador").textContent = pendientes;
+      $("#reservas-contador").classList.toggle("oculto", !pendientes);
+      if (estado.pestana === "reservas") pintarReservas();
+      programarPortal();
+    }, (e) => console.error("Reservas:", e)),
+    onSnapshot(collection(db, "users", uid, "ocupados"), (snap) => {
+      estado.ocupados = Object.fromEntries(snap.docs.map((d) => [d.id, d.data().estado]));
+    }, (e) => console.error("Ocupados:", e)),
+    onSnapshot(query(collection(db, "clientesPortal"), where("owner", "==", uid)), (snap) => {
+      estado.clientesPortal = snap.docs.map((d) => ({ email: d.id, ...d.data() }));
+      if (estado.pestana === "reservas") pintarReservas();
+    }, (e) => console.error("Clientes del portal:", e)),
+  ];
+}
+
+// Espera un momento después del último cambio y deja al día lo que ven los clientes
+let timerPortal = null;
+function programarPortal() {
+  clearTimeout(timerPortal);
+  timerPortal = setTimeout(() => actualizarPortal().catch((e) => console.error("Portal:", e)), 2500);
+}
+async function actualizarPortal() {
+  if (!estado.sesion || estado.sesion.soloLectura) return;
+  // 1) Días ocupados: solo fecha y color, sin detalles del trabajo
+  const desde = sumarDiasISO(hoyISO(), -1);
+  const deseado = {};
+  for (const t of estado.trabajos) {
+    if (t.estado === "NO_REALIZADO" || t.fecha < desde) continue;
+    if (t.confirmado) deseado[t.fecha] = "confirmado";
+    else deseado[t.fecha] ??= "tentativo";
+  }
+  for (const [f, e] of Object.entries(deseado)) if (estado.ocupados[f] !== e) await setDoc(doc(colOcupados(), f), { estado: e });
+  for (const f of Object.keys(estado.ocupados)) if (!deseado[f]) await deleteDoc(doc(colOcupados(), f));
+  // 2) Reservas aprobadas: el cliente ve la fecha, el precio y si ya está pagado tal como está en tu agenda
+  for (const r of estado.reservas.filter((x) => x.estado === "aprobada" && x.trabajoUuid)) {
+    const t = estado.trabajos.find((x) => x.uuid === r.trabajoUuid);
+    if (!t) { await updateDoc(doc(colReservas(), r.id), { estado: "cancelada" }); continue; }
+    const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, moneda: t.moneda, pagado: t.pagado };
+    if (Object.entries(vista).some(([k, v]) => (r[k] ?? null) !== (v ?? null))) await updateDoc(doc(colReservas(), r.id), vista);
+  }
+}
+function sumarDiasISO(iso, dias) {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().slice(0, 10);
+}
+
+function textoServicios(lista) { return (lista || []).map((s) => TIPOS[s] || s).join(" + ") || "Servicio"; }
+function horarioReserva(r) {
+  if (r.horaInicio == null) return "Todo el día";
+  return minutosAHora(r.horaInicio) + (r.horaFin != null ? " a " + minutosAHora(r.horaFin) : "");
+}
+
+function pintarReservas() {
+  $("#enlace-portal").textContent = URL_PORTAL;
+  const ocupadoPorTrabajo = (r) => estado.trabajos.some((t) => t.fecha === r.fecha && t.estado !== "NO_REALIZADO" && t.reservaId !== r.id);
+  const tarjeta = (r, conAcciones) => {
+    const el = document.createElement("div");
+    el.className = "reserva";
+    const choque = r.estado === "pendiente" && ocupadoPorTrabajo(r);
+    el.innerHTML = `
+      <div class="linea"><b>${esc(r.marca || r.clienteNombre || r.clienteEmail)}</b><span class="nota">${fechaCorta(r.fecha)} · ${horarioReserva(r)}</span></div>
+      <div class="linea"><span>${esc(textoServicios(r.servicios))}${r.lugar ? " · " + esc(r.lugar) : ""}</span><b>${dinero(r.precio, r.moneda)}</b></div>
+      ${r.notas ? `<small class="suave">${esc(r.notas)}</small>` : ""}
+      <small class="suave">Pidió: ${esc(r.clienteEmail)}</small>
+      ${choque ? '<small class="rojo">Ojo: ya tienes un trabajo ese día.</small>' : ""}
+      ${r.estado === "aprobada" ? `<small>${r.pagado ? '<span class="verde-t">Pagado</span>' : `Pago para el ${fechaCorta(sumarDiasISO(r.fecha, DIAS_PARA_COBRO))}`}</small>` : ""}
+      ${r.comprobante ? `<div><small>Captura de transferencia:</small><br><img src="${r.comprobante}" alt="Captura de transferencia"></div>` : ""}
+      ${conAcciones ? '<div class="acciones"><button class="btn primario aprobar">Aprobar</button><button class="btn texto rojo rechazar">Rechazar</button></div>' : ""}`;
+    if (conAcciones) {
+      el.querySelector(".aprobar").onclick = () => aprobarReserva(r);
+      el.querySelector(".rechazar").onclick = () => rechazarReserva(r);
+    }
+    el.querySelector("img")?.addEventListener("click", (e) => window.open(e.target.src, "_blank"));
+    return el;
+  };
+  const pend = estado.reservas.filter((r) => r.estado === "pendiente").sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const apro = estado.reservas.filter((r) => r.estado === "aprobada" && r.fecha >= sumarDiasISO(hoyISO(), -60)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  $("#reservas-pendientes").replaceChildren(...(pend.length ? pend.map((r) => tarjeta(r, true)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "No hay reservas por aprobar." })]));
+  $("#reservas-aprobadas").replaceChildren(...(apro.length ? apro.map((r) => tarjeta(r, false)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "Sin reservas aprobadas recientes." })]));
+  $("#lista-portal").innerHTML = estado.clientesPortal.length
+    ? estado.clientesPortal.map((c) => `<div class="cobro"><div style="flex:1"><b>${esc(c.nombre || c.email)}</b><br><small class="suave">${esc(c.email)}</small></div><button class="btn texto rojo" data-quitar="${esc(c.email)}">Quitar acceso</button></div>`).join("")
+    : '<p class="vacio">Todavía no hay clientes con acceso.</p>';
+  $("#lista-portal").querySelectorAll("[data-quitar]").forEach((b) => b.onclick = async () => {
+    if (confirm(`¿Quitarle el acceso a ${b.dataset.quitar}?`)) await deleteDoc(doc(db, "clientesPortal", b.dataset.quitar));
+  });
+}
+
+async function aprobarReserva(r) {
+  const t = {
+    uuid: crypto.randomUUID(),
+    cliente: r.marca || r.clienteNombre || r.clienteEmail,
+    titulo: textoServicios(r.servicios) + (r.lugar ? " · " + r.lugar : ""),
+    fecha: r.fecha,
+    horaInicio: r.horaInicio ?? null,
+    horaFin: r.horaFin ?? null,
+    tipos: (r.servicios || []).filter((s) => TIPOS[s]),
+    modalidad: "EVENTO",
+    moneda: r.moneda || "USD",
+    precio: Number(r.precio || 0),
+    anticipo: 0,
+    notas: [r.lugar && "Lugar: " + r.lugar, r.notas, "Reservado desde el portal por " + r.clienteEmail].filter(Boolean).join("\n"),
+    estado: "PENDIENTE",
+    pagado: false,
+    confirmado: true,
+    reservaId: r.id,
+  };
+  await guardar(t);
+  await updateDoc(doc(colReservas(), r.id), { estado: "aprobada", trabajoUuid: t.uuid, aprobada: Date.now() });
+}
+async function rechazarReserva(r) {
+  const motivo = prompt("¿Quieres dejarle un mensaje al cliente? (opcional)", "La fecha no está disponible.");
+  if (motivo === null) return;
+  await updateDoc(doc(colReservas(), r.id), { estado: "rechazada", mensaje: motivo.trim() });
+}
+
+$("#form-portal").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const email = f.email.value.trim().toLowerCase();
+  try {
+    await setDoc(doc(db, "clientesPortal", email), { owner: estado.sesion.duenoUid, nombre: f.nombre.value.trim(), creado: Date.now() });
+    f.reset();
+    alertaCorta(`Listo. ${email} ya puede entrar en ${URL_PORTAL}`);
+  } catch (err) {
+    alert("No se pudo dar acceso: " + err.message + "\nRevisa que las reglas nuevas de Firebase estén publicadas.");
   }
 });
