@@ -210,8 +210,36 @@ formRes.addEventListener("submit", async (e) => {
   }
 });
 
+// ---------- Mis pagos: cuánto debe y cuándo le toca pagar ----------
+function porPagar(r) { return Math.max(0, Number(r.precio || 0) - Number(r.anticipo || 0)); }
+function pintarPagos() {
+  const pendientes = estado.reservas
+    .filter((r) => r.estado === "aprobada" && !r.pagado && porPagar(r) > 0)
+    .map((r) => ({ ...r, fechaPago: sumarDias(r.fecha, DIAS_PARA_PAGO) }))
+    .sort((a, b) => a.fechaPago.localeCompare(b.fechaPago));
+  $("#pagos").classList.toggle("oculto", !pendientes.length);
+  if (!pendientes.length) return;
+  const hoy = hoyISO();
+  const total = {}, vencido = {};
+  for (const r of pendientes) {
+    total[r.moneda] = (total[r.moneda] || 0) + porPagar(r);
+    if (r.fechaPago < hoy) vencido[r.moneda] = (vencido[r.moneda] || 0) + porPagar(r);
+  }
+  const cajas = Object.entries(total).map(([m, n]) => `<div><small>Total por pagar</small><b>${dinero(n, m)}</b></div>`);
+  for (const [m, n] of Object.entries(vencido)) cajas.push(`<div class="vencido"><small>Ya vencido</small><b>${dinero(n, m)}</b></div>`);
+  $("#pagos-total").innerHTML = cajas.join("");
+  $("#pagos-lista").innerHTML = pendientes.map((r) => {
+    const v = r.fechaPago < hoy;
+    return `<div class="pc-pago${v ? " vencido" : ""}">
+      <span><b>${fechaLarga(r.fechaPago)}</b>${v ? " (vencido)" : ""}
+        <small>Trabajo del ${fechaLarga(r.fecha).toLowerCase()} · ${esc(r.marca)}${r.comprobante ? " · captura enviada" : ""}</small></span>
+      <b>${dinero(porPagar(r), r.moneda)}</b></div>`;
+  }).join("");
+}
+
 // ---------- Mis reservas ----------
 function pintarReservas() {
+  pintarPagos();
   const lista = $("#mis-reservas");
   if (!estado.reservas.length) {
     lista.innerHTML = '<p class="vacio">Todavía no tienes reservas. Toca un día libre en el calendario para pedir una.</p>';

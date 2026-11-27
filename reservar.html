@@ -40,6 +40,16 @@
     .pc-estado.rechazada, .pc-estado.cancelada { background: #FDE2E1; color: #9B2C28; }
     .pc-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
     .pc-acciones a { text-decoration: none; }
+    .pc-total { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .pc-total div { flex: 1; min-width: 140px; background: #F3F6FA; border-radius: 12px; padding: 10px 12px; }
+    .pc-total small { color: var(--gris); display: block; }
+    .pc-total b { font-size: 22px; }
+    .pc-total .vencido { background: #FDE2E1; color: #9B2C28; }
+    .pc-pagos { display: flex; flex-direction: column; }
+    .pc-pago { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--borde); font-size: 14px; }
+    .pc-pago.vencido { color: #9B2C28; }
+    .pc-pago > b, .pc-res .linea b:last-child { white-space: nowrap; }
+    .pc-pago small { display: block; color: var(--gris); }
     .servicios { display: flex; gap: 8px; flex-wrap: wrap; }
     @media (max-width: 480px) { .pc-dia { font-size: 13px; border-radius: 8px; } .pc-main { padding: 12px; } }
   </style>
@@ -92,6 +102,11 @@
           <span><i style="box-shadow:inset 0 0 0 3px #1565C0"></i>Tu reserva</span>
         </div>
       </section>
+      <section id="pagos" class="pc-tarjeta oculto">
+        <h3 style="margin:0 0 8px">Mis pagos</h3>
+        <div id="pagos-total" class="pc-total"></div>
+        <div id="pagos-lista" class="pc-pagos"></div>
+      </section>
       <section class="pc-tarjeta">
         <h3 style="margin:0 0 8px">Mis reservas</h3>
         <div id="mis-reservas" class="lista"></div>
@@ -142,6 +157,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="reservar.js?v=2"></script>
+  <script type="module" src="reservar.js?v=3"></script>
 </body>
 </html>

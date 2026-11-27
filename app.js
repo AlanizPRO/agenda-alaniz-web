@@ -1405,7 +1405,7 @@ async function actualizarPortal() {
   for (const r of estado.reservas.filter((x) => x.estado === "aprobada" && x.trabajoUuid)) {
     const t = estado.trabajos.find((x) => x.uuid === r.trabajoUuid);
     if (!t) { await updateDoc(doc(colReservas(), r.id), { estado: "cancelada" }); continue; }
-    const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, moneda: t.moneda, pagado: t.pagado };
+    const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, anticipo: t.anticipo || 0, moneda: t.moneda, pagado: t.pagado };
     if (Object.entries(vista).some(([k, v]) => (r[k] ?? null) !== (v ?? null))) await updateDoc(doc(colReservas(), r.id), vista);
   }
 }
