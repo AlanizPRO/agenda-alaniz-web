@@ -1359,7 +1359,7 @@ $("#form-proforma").addEventListener("submit", async (e) => {
 
 
 // ---------- Portal de clientes: reservas, días ocupados y accesos ----------
-const URL_PORTAL = "https://alanizpro.github.io/agenda-alaniz-web/reservar.html";
+const URL_PORTAL = "https://carlosalanizfotografia.com/agenda-alaniz-web/reservar.html";
 const colReservas = () => collection(db, "users", estado.sesion.duenoUid, "reservas");
 const colOcupados = () => collection(db, "users", estado.sesion.duenoUid, "ocupados");
 
