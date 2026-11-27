@@ -1413,7 +1413,7 @@ async function actualizarPortal() {
   //    le salen a ese cliente como reservas aprobadas, con su fecha de pago
   const enlazados = new Set(estado.reservas.map((r) => r.trabajoUuid).filter(Boolean));
   for (const c of estado.clientesPortal) {
-    const palabras = (c.palabras || []).map(sinAcentos).filter(Boolean);
+    const palabras = listaPalabras(c.palabras).map(sinAcentos).filter(Boolean);
     if (!palabras.length) continue;
     const buscar = new RegExp(`\\b(${palabras.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`);
     for (const t of estado.trabajos) {
@@ -1429,6 +1429,10 @@ async function actualizarPortal() {
       });
     }
   }
+}
+/** Acepta lista o texto separado por comas ("Omar, Holcim"). */
+function listaPalabras(v) {
+  return (Array.isArray(v) ? v : String(v || "").split(",")).map((p) => String(p).trim()).filter(Boolean);
 }
 function sinAcentos(s) {
   return String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -1473,11 +1477,11 @@ function pintarReservas() {
   $("#reservas-pendientes").replaceChildren(...(pend.length ? pend.map((r) => tarjeta(r, true)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "No hay reservas por aprobar." })]));
   $("#reservas-aprobadas").replaceChildren(...(apro.length ? apro.map((r) => tarjeta(r, false)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "Sin reservas aprobadas recientes." })]));
   $("#lista-portal").innerHTML = estado.clientesPortal.length
-    ? estado.clientesPortal.map((c) => `<div class="cobro"><div style="flex:1"><b>${esc(c.nombre || c.email)}</b><br><small class="suave">${esc(c.email)}</small>${(c.palabras || []).length ? `<br><small>Sus trabajos dicen: ${esc(c.palabras.join(", "))}</small>` : ""}</div><button class="btn texto" data-palabras="${esc(c.email)}">Palabras</button><button class="btn texto rojo" data-quitar="${esc(c.email)}">Quitar acceso</button></div>`).join("")
+    ? estado.clientesPortal.map((c) => `<div class="cobro"><div style="flex:1"><b>${esc(c.nombre || c.email)}</b><br><small class="suave">${esc(c.email)}</small>${listaPalabras(c.palabras).length ? `<br><small>Sus trabajos dicen: ${esc(listaPalabras(c.palabras).join(", "))}</small>` : ""}</div><button class="btn texto" data-palabras="${esc(c.email)}">Palabras</button><button class="btn texto rojo" data-quitar="${esc(c.email)}">Quitar acceso</button></div>`).join("")
     : '<p class="vacio">Todavía no hay clientes con acceso.</p>';
   $("#lista-portal").querySelectorAll("[data-palabras]").forEach((b) => b.onclick = async () => {
     const c = estado.clientesPortal.find((x) => x.email === b.dataset.palabras);
-    const r = prompt("Palabras que dicen sus trabajos, separadas por coma (ej. Omar, Holcim, DISENSA)", (c?.palabras || []).join(", "));
+    const r = prompt("Palabras que dicen sus trabajos, separadas por coma (ej. Omar, Holcim, DISENSA)", listaPalabras(c?.palabras).join(", "));
     if (r === null) return;
     await updateDoc(doc(db, "clientesPortal", c.email), { palabras: r.split(",").map((p) => p.trim()).filter(Boolean) });
   });
