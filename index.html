@@ -110,10 +110,11 @@
         <h4 class="seccion">Aprobadas</h4>
         <div id="reservas-aprobadas" class="lista"></div>
         <h4 class="seccion">Clientes con acceso al portal</h4>
-        <p class="suave chico">Entran en <b id="enlace-portal"></b>. Escriben su correo y les llega un enlace para entrar (o entran con Google). Solo ven sus reservas y el color de los días (naranja tentativo, rojo confirmado).</p>
+        <p class="suave chico">Entran en <b id="enlace-portal"></b>. Escriben su correo y les llega un enlace para entrar (o entran con Google). Solo ven sus reservas y el color de los días (naranja tentativo, rojo confirmado). Si le pones palabras, los trabajos de tu agenda que las digan (en cliente, título o notas) también le salen a él con su fecha de pago.</p>
         <form id="form-portal" class="fila">
           <input name="email" type="email" class="campo" placeholder="correo@gmail.com" required>
           <input name="nombre" class="campo" placeholder="Nombre o marca" required>
+          <input name="palabras" class="campo" placeholder="Sus trabajos dicen (ej. Omar, Holcim)">
           <button class="btn primario">Dar acceso</button>
         </form>
         <div id="lista-portal" class="lista"></div>
@@ -259,6 +260,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js?v=36"></script>
+  <script type="module" src="app.js?v=37"></script>
 </body>
 </html>

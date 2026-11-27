@@ -1379,6 +1379,7 @@ function escucharPortal(uid) {
     onSnapshot(query(collection(db, "clientesPortal"), where("owner", "==", uid)), (snap) => {
       estado.clientesPortal = snap.docs.map((d) => ({ email: d.id, ...d.data() }));
       if (estado.pestana === "reservas") pintarReservas();
+      programarPortal();
     }, (e) => console.error("Clientes del portal:", e)),
   ];
 }
@@ -1408,6 +1409,29 @@ async function actualizarPortal() {
     const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, anticipo: t.anticipo || 0, moneda: t.moneda, pagado: t.pagado };
     if (Object.entries(vista).some(([k, v]) => (r[k] ?? null) !== (v ?? null))) await updateDoc(doc(colReservas(), r.id), vista);
   }
+  // 3) Trabajos que ya están en tu agenda y dicen las palabras de un cliente (ej. "Omar", "Holcim"):
+  //    le salen a ese cliente como reservas aprobadas, con su fecha de pago
+  const enlazados = new Set(estado.reservas.map((r) => r.trabajoUuid).filter(Boolean));
+  for (const c of estado.clientesPortal) {
+    const palabras = (c.palabras || []).map(sinAcentos).filter(Boolean);
+    if (!palabras.length) continue;
+    const buscar = new RegExp(`\\b(${palabras.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`);
+    for (const t of estado.trabajos) {
+      if (enlazados.has(t.uuid) || t.estado === "NO_REALIZADO") continue;
+      if (!buscar.test(sinAcentos(`${t.cliente} ${t.titulo} ${t.notas}`))) continue;
+      enlazados.add(t.uuid);
+      await setDoc(doc(colReservas(), "agenda-" + t.uuid), {
+        clienteEmail: c.email, clienteNombre: c.nombre || "",
+        fecha: t.fecha, horaInicio: t.horaInicio ?? null, horaFin: t.horaFin ?? null,
+        lugar: "", marca: t.cliente, servicios: t.tipos || [], notas: "",
+        moneda: t.moneda, precio: t.precio || 0, anticipo: t.anticipo || 0, pagado: !!t.pagado,
+        estado: "aprobada", trabajoUuid: t.uuid, aprobada: Date.now(), creada: Date.now(), origen: "agenda",
+      });
+    }
+  }
+}
+function sinAcentos(s) {
+  return String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 function sumarDiasISO(iso, dias) {
   const d = new Date(iso + "T12:00:00");
@@ -1449,8 +1473,14 @@ function pintarReservas() {
   $("#reservas-pendientes").replaceChildren(...(pend.length ? pend.map((r) => tarjeta(r, true)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "No hay reservas por aprobar." })]));
   $("#reservas-aprobadas").replaceChildren(...(apro.length ? apro.map((r) => tarjeta(r, false)) : [Object.assign(document.createElement("p"), { className: "vacio", textContent: "Sin reservas aprobadas recientes." })]));
   $("#lista-portal").innerHTML = estado.clientesPortal.length
-    ? estado.clientesPortal.map((c) => `<div class="cobro"><div style="flex:1"><b>${esc(c.nombre || c.email)}</b><br><small class="suave">${esc(c.email)}</small></div><button class="btn texto rojo" data-quitar="${esc(c.email)}">Quitar acceso</button></div>`).join("")
+    ? estado.clientesPortal.map((c) => `<div class="cobro"><div style="flex:1"><b>${esc(c.nombre || c.email)}</b><br><small class="suave">${esc(c.email)}</small>${(c.palabras || []).length ? `<br><small>Sus trabajos dicen: ${esc(c.palabras.join(", "))}</small>` : ""}</div><button class="btn texto" data-palabras="${esc(c.email)}">Palabras</button><button class="btn texto rojo" data-quitar="${esc(c.email)}">Quitar acceso</button></div>`).join("")
     : '<p class="vacio">Todavía no hay clientes con acceso.</p>';
+  $("#lista-portal").querySelectorAll("[data-palabras]").forEach((b) => b.onclick = async () => {
+    const c = estado.clientesPortal.find((x) => x.email === b.dataset.palabras);
+    const r = prompt("Palabras que dicen sus trabajos, separadas por coma (ej. Omar, Holcim, DISENSA)", (c?.palabras || []).join(", "));
+    if (r === null) return;
+    await updateDoc(doc(db, "clientesPortal", c.email), { palabras: r.split(",").map((p) => p.trim()).filter(Boolean) });
+  });
   $("#lista-portal").querySelectorAll("[data-quitar]").forEach((b) => b.onclick = async () => {
     if (confirm(`¿Quitarle el acceso a ${b.dataset.quitar}?`)) await deleteDoc(doc(db, "clientesPortal", b.dataset.quitar));
   });
@@ -1489,7 +1519,8 @@ $("#form-portal").addEventListener("submit", async (e) => {
   const f = e.target;
   const email = f.email.value.trim().toLowerCase();
   try {
-    await setDoc(doc(db, "clientesPortal", email), { owner: estado.sesion.duenoUid, nombre: f.nombre.value.trim(), creado: Date.now() });
+    const palabras = f.palabras.value.split(",").map((p) => p.trim()).filter(Boolean);
+    await setDoc(doc(db, "clientesPortal", email), { owner: estado.sesion.duenoUid, nombre: f.nombre.value.trim(), palabras, creado: Date.now() });
     f.reset();
     alertaCorta(`Listo. ${email} ya puede entrar en ${URL_PORTAL}`);
   } catch (err) {
