@@ -1493,7 +1493,7 @@ async function actualizarPortal() {
         lugar: "", marca: t.cliente, servicios: t.tipos || [], notas: "",
         moneda: t.moneda, precio: t.precio || 0, anticipo: t.anticipo || 0, pagado: !!t.pagado, fechaPago: fechaCobro(t),
         estado: "aprobada", trabajoUuid: t.uuid, aprobada: Date.now(), creada: Date.now(), origen: "agenda",
-      });
+      }, { merge: true });
     }
   }
 }
