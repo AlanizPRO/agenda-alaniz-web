@@ -100,7 +100,10 @@
       <section id="vista-clientes" class="vista angosta oculto">
         <h4 class="seccion">Total general</h4>
         <div id="total-general"></div>
-        <input id="buscar" class="campo" placeholder="Buscar cliente">
+        <div class="fila">
+          <input id="buscar" class="campo" placeholder="Buscar cliente">
+          <button id="btn-juntar" class="btn borde" type="button">Juntar clientes</button>
+        </div>
         <div id="lista-clientes" class="lista"></div>
       </section>
 
@@ -260,6 +263,21 @@
     </div>
   </dialog>
 
-  <script type="module" src="app.js?v=38"></script>
+  <dialog id="dlg-juntar">
+    <form id="form-juntar" method="dialog">
+      <h3>Juntar clientes</h3>
+      <p class="suave chico">Marca los nombres que son el mismo cliente. Todos sus trabajos quedan con el nombre de abajo, en la web y en el celular.</p>
+      <input id="juntar-filtro" class="campo" placeholder="Filtrar (ej. omar)">
+      <div id="juntar-lista" class="lista" style="max-height:45vh;overflow:auto"></div>
+      <label>Nombre final *<input id="juntar-nombre" class="campo" required placeholder="Ej. OMAR PULSE"></label>
+      <p id="juntar-error" class="error"></p>
+      <div class="fila">
+        <button value="cancel" class="btn texto" formnovalidate>Cancelar</button>
+        <button id="btn-juntar-ok" class="btn primario">Juntar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js?v=39"></script>
 </body>
 </html>

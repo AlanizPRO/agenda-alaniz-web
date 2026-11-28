@@ -581,6 +581,54 @@ function pintarClientes() {
     });
 }
 
+// ---------- Juntar clientes escritos de varias formas ("Omar", "Omar Holcim"...) en uno solo ----------
+function nombresDeClientes() {
+  const grupos = {};
+  for (const t of estado.trabajos) {
+    const k = claveCliente(t.cliente);
+    if (!k) continue;
+    (grupos[k] ??= { nombre: t.cliente.trim(), cuantos: 0 }).cuantos++;
+  }
+  return Object.entries(grupos).map(([clave, g]) => ({ clave, ...g })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+function pintarJuntar() {
+  const filtro = claveCliente($("#juntar-filtro").value);
+  const marcados = new Set([...document.querySelectorAll("#juntar-lista input:checked")].map((i) => i.value));
+  $("#juntar-lista").innerHTML = nombresDeClientes()
+    .filter((c) => !filtro || c.clave.includes(filtro) || marcados.has(c.clave))
+    .map((c) => `<label class="chip" style="justify-content:flex-start"><input type="checkbox" value="${esc(c.clave)}" ${marcados.has(c.clave) ? "checked" : ""}>${esc(c.nombre)} <small class="suave">(${c.cuantos})</small></label>`)
+    .join("") || '<p class="vacio">No hay clientes con ese nombre.</p>';
+}
+$("#btn-juntar").onclick = () => {
+  if (estado.sesion?.soloLectura) return alert("Solo el dueño puede juntar clientes.");
+  $("#form-juntar").reset();
+  $("#juntar-error").textContent = "";
+  $("#juntar-lista").innerHTML = "";
+  pintarJuntar();
+  $("#dlg-juntar").showModal();
+};
+$("#juntar-filtro").oninput = pintarJuntar;
+$("#form-juntar").addEventListener("submit", async (e) => {
+  if (e.submitter?.value === "cancel") return;
+  e.preventDefault();
+  const claves = new Set([...document.querySelectorAll("#juntar-lista input:checked")].map((i) => i.value));
+  const nombre = $("#juntar-nombre").value.trim();
+  if (!claves.size) { $("#juntar-error").textContent = "Marca al menos un nombre."; return; }
+  const cambiar = estado.trabajos.filter((t) => claves.has(claveCliente(t.cliente)) && t.cliente !== nombre);
+  if (!confirm(`Se van a cambiar ${cambiar.length} trabajos al nombre "${nombre}". ¿Seguro?`)) return;
+  $("#btn-juntar-ok").disabled = true;
+  try {
+    const ahora = Date.now();
+    for (const t of cambiar) await updateDoc(doc(coleccion(), t.uuid), { cliente: nombre, actualizado: ahora });
+    $("#dlg-juntar").close();
+    alertaCorta(`Listo: ${cambiar.length} trabajos ahora son de "${nombre}".`);
+  } catch (err) {
+    $("#juntar-error").textContent = "No se pudo: " + err.message;
+  } finally {
+    $("#btn-juntar-ok").disabled = false;
+  }
+});
+
 // ---------- Formulario ----------
 
 const dlg = $("#dlg-trabajo");
