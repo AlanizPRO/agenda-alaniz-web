@@ -71,9 +71,10 @@ service cloud.firestore {
       match /reservas/{id} {
         allow read: if esDueno(uid) || esLector(uid)
           || (esCliente(uid) && resource.data.clienteEmail == correo());
-        allow create: if esCliente(uid)
+        allow create: if esDueno(uid)
+          || (esCliente(uid)
           && request.resource.data.clienteEmail == correo()
-          && request.resource.data.estado == "pendiente";
+          && request.resource.data.estado == "pendiente");
         allow update: if esDueno(uid)
           || (esCliente(uid) && resource.data.clienteEmail == correo()
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["comprobante", "comprobanteFecha"]));
