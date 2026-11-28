@@ -1472,6 +1472,21 @@ async function actualizarPortal() {
       if (enlazados.has(t.uuid) || t.estado === "NO_REALIZADO") continue;
       if (!buscar.test(sinAcentos(`${t.cliente} ${t.titulo} ${t.notas}`))) continue;
       enlazados.add(t.uuid);
+      // Si el cliente ya había pedido ese mismo día desde el portal (pendiente, o cancelada porque se borró
+      // el trabajo repetido), se une con este trabajo en vez de crear otra reserva
+      const suya = estado.reservas.find((r) => r.clienteEmail === c.email && r.fecha === t.fecha
+        && (r.estado === "pendiente" || r.estado === "cancelada")
+        && !(r.trabajoUuid && estado.trabajos.some((x) => x.uuid === r.trabajoUuid)));
+      if (suya) {
+        suya.estado = "aprobada";
+        suya.trabajoUuid = t.uuid;
+        await updateDoc(doc(colReservas(), suya.id), {
+          estado: "aprobada", trabajoUuid: t.uuid, aprobada: Date.now(),
+          precio: t.precio || 0, anticipo: t.anticipo || 0, moneda: t.moneda, pagado: !!t.pagado, fechaPago: fechaCobro(t),
+          horaInicio: t.horaInicio ?? null, horaFin: t.horaFin ?? null,
+        });
+        continue;
+      }
       await setDoc(doc(colReservas(), "agenda-" + t.uuid), {
         clienteEmail: c.email, clienteNombre: c.nombre || "",
         fecha: t.fecha, horaInicio: t.horaInicio ?? null, horaFin: t.horaFin ?? null,
@@ -1543,9 +1558,21 @@ function pintarReservas() {
 }
 
 async function aprobarReserva(r) {
+  // Ese día ya tienes un trabajo: puede ser el mismo (ej. lo agendaste tú antes) y se unen sin repetirlo
+  const mismoDia = estado.trabajos.filter((x) => x.fecha === r.fecha && x.estado !== "NO_REALIZADO");
+  for (const x of mismoDia) {
+    if (confirm(`Ese día ya tienes "${x.cliente}"${x.titulo ? " (" + x.titulo + ")" : ""}.\n¿Es el mismo trabajo que esta reserva?\n\nAceptar = unirlos (no se crea otro)\nCancelar = no es el mismo`)) {
+      await updateDoc(doc(colReservas(), r.id), {
+        estado: "aprobada", trabajoUuid: x.uuid, aprobada: Date.now(),
+        precio: x.precio || 0, anticipo: x.anticipo || 0, moneda: x.moneda, pagado: !!x.pagado, fechaPago: fechaCobro(x),
+      });
+      return;
+    }
+  }
+  const cuenta = estado.clientesPortal.find((c) => c.email === r.clienteEmail);
   const t = {
     uuid: crypto.randomUUID(),
-    cliente: r.marca || r.clienteNombre || r.clienteEmail,
+    cliente: cuenta?.nombre || r.marca || r.clienteNombre || r.clienteEmail,
     titulo: textoServicios(r.servicios) + (r.lugar ? " · " + r.lugar : ""),
     fecha: r.fecha,
     horaInicio: r.horaInicio ?? null,
