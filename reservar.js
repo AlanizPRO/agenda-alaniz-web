@@ -41,6 +41,8 @@ function hora12(min) {
 function horario(r) { return r.horaInicio == null ? "Todo el día" : hora12(r.horaInicio) + (r.horaFin != null ? " a " + hora12(r.horaFin) : ""); }
 function dinero(n, m) { return `${MONEDA[m] || ""} ${Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+/** La fecha de pago que puso Dianas Films, o 15 días después del trabajo. */
+function fechaDePago(r) { return r.fechaPago || sumarDias(r.fecha, DIAS_PARA_PAGO); }
 function servicios(r) { return (r.servicios || []).map((s) => SERVICIOS[s] || s).join(" + "); }
 
 /** Enlace para agregar la reserva a Google Calendar del cliente. */
@@ -56,7 +58,7 @@ function enlaceGoogleCalendar(r) {
     dates: fechas,
     ctz: "America/Managua",
     location: r.lugar || "",
-    details: `Reserva aprobada con Dianas Films.\nCliente o marca: ${r.marca}\nPrecio: ${dinero(r.precio, r.moneda)}\nFecha de pago: ${fechaLarga(sumarDias(r.fecha, DIAS_PARA_PAGO))}`,
+    details: `Reserva aprobada con Dianas Films.\nCliente o marca: ${r.marca}\nPrecio: ${dinero(r.precio, r.moneda)}\nFecha de pago: ${fechaLarga(fechaDePago(r))}`,
   });
   return "https://calendar.google.com/calendar/render?" + p.toString();
 }
@@ -215,7 +217,7 @@ function porPagar(r) { return Math.max(0, Number(r.precio || 0) - Number(r.antic
 function pintarPagos() {
   const pendientes = estado.reservas
     .filter((r) => r.estado === "aprobada" && !r.pagado && porPagar(r) > 0)
-    .map((r) => ({ ...r, fechaPago: sumarDias(r.fecha, DIAS_PARA_PAGO) }))
+    .map((r) => ({ ...r, fechaPago: fechaDePago(r) }))
     .sort((a, b) => a.fechaPago.localeCompare(b.fechaPago));
   $("#pagos").classList.toggle("oculto", !pendientes.length);
   if (!pendientes.length) return;
@@ -248,7 +250,7 @@ function pintarReservas() {
   lista.replaceChildren(...estado.reservas.map((r) => {
     const el = document.createElement("div");
     el.className = "pc-res";
-    const fechaPago = sumarDias(r.fecha, DIAS_PARA_PAGO);
+    const fechaPago = fechaDePago(r);
     const aprobada = r.estado === "aprobada";
     el.innerHTML = `
       <span class="pc-estado ${r.estado}">${ESTADOS[r.estado] || r.estado}</span>

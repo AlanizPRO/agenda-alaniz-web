@@ -93,7 +93,8 @@ const claveCliente = (n) => n.trim().toLowerCase().replace(/\s+/g, " ");
 
 // ---------- Reglas de negocio (iguales a la app del celular) ----------
 
-const fechaCobro = (t) => sumarDias(t.fecha, DIAS_PARA_COBRO);
+/** Fecha de cobro: la que pusiste a mano, o 15 días después del trabajo. */
+const fechaCobro = (t) => t.fechaCobro || sumarDias(t.fecha, DIAS_PARA_COBRO);
 const saldo = (t) => (t.pagado ? 0 : Math.max(0, t.precio - t.anticipo));
 const cobrado = (t) => (t.estado === "NO_REALIZADO" ? 0 : t.pagado ? t.precio : Math.min(t.anticipo, t.precio));
 const cobroAbierto = (t) => t.estado !== "NO_REALIZADO" && !t.pagado && t.precio > 0;
@@ -144,6 +145,7 @@ function normalizar(id, d) {
     pagado: !!d.pagado,
     confirmado: !!d.confirmado,
     reservaId: d.reservaId ?? "",
+    fechaCobro: d.fechaCobro ?? "",
     actualizado: d.actualizado ?? 0,
   };
 }
@@ -652,6 +654,7 @@ function abrirFormulario(t, fecha) {
   form.moneda.value = v.moneda;
   form.precio.value = v.precio === "" ? "" : v.precio;
   form.anticipo.value = v.anticipo ? v.anticipo : "";
+  form.fechaCobro.value = v.fechaCobro || "";
   form.notas.value = v.notas;
   form.querySelector(`[name="estado"][value="${v.estado}"]`).checked = true;
   form.pagado.checked = v.pagado;
@@ -672,7 +675,7 @@ function actualizarSaldo() {
   $("#btn-recibo").textContent = form.pagado.checked ? "Recibo de pago JPG" : "Cobro JPG";
   if (!precio || !form.fecha.value) { $("#form-saldo").textContent = ""; return; }
   const s = form.pagado.checked ? 0 : Math.max(0, precio - anticipo);
-  $("#form-saldo").textContent = `Saldo por cobrar: ${dinero(s, form.moneda.value)} · Fecha de cobro: ${fechaLarga(sumarDias(form.fecha.value, DIAS_PARA_COBRO))}`;
+  $("#form-saldo").textContent = `Saldo por cobrar: ${dinero(s, form.moneda.value)} · Fecha de cobro: ${fechaLarga(form.fechaCobro.value || sumarDias(form.fecha.value, DIAS_PARA_COBRO))}`;
 }
 form.addEventListener("input", actualizarSaldo);
 
@@ -691,6 +694,7 @@ function leerFormulario() {
     moneda: form.moneda.value,
     precio,
     anticipo: Math.min(Number(form.anticipo.value || 0), precio),
+    fechaCobro: form.fechaCobro.value || "",
     notas: form.notas.value.trim(),
     estado: form.querySelector('[name="estado"]:checked').value,
     pagado: form.pagado.checked,
@@ -1454,7 +1458,7 @@ async function actualizarPortal() {
   for (const r of estado.reservas.filter((x) => x.estado === "aprobada" && x.trabajoUuid)) {
     const t = estado.trabajos.find((x) => x.uuid === r.trabajoUuid);
     if (!t) { await updateDoc(doc(colReservas(), r.id), { estado: "cancelada" }); continue; }
-    const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, anticipo: t.anticipo || 0, moneda: t.moneda, pagado: t.pagado };
+    const vista = { fecha: t.fecha, horaInicio: t.horaInicio, horaFin: t.horaFin, precio: t.precio, anticipo: t.anticipo || 0, moneda: t.moneda, pagado: t.pagado, fechaPago: fechaCobro(t) };
     if (Object.entries(vista).some(([k, v]) => (r[k] ?? null) !== (v ?? null))) await updateDoc(doc(colReservas(), r.id), vista);
   }
   // 3) Trabajos que ya están en tu agenda y dicen las palabras de un cliente (ej. "Omar", "Holcim"):
@@ -1472,7 +1476,7 @@ async function actualizarPortal() {
         clienteEmail: c.email, clienteNombre: c.nombre || "",
         fecha: t.fecha, horaInicio: t.horaInicio ?? null, horaFin: t.horaFin ?? null,
         lugar: "", marca: t.cliente, servicios: t.tipos || [], notas: "",
-        moneda: t.moneda, precio: t.precio || 0, anticipo: t.anticipo || 0, pagado: !!t.pagado,
+        moneda: t.moneda, precio: t.precio || 0, anticipo: t.anticipo || 0, pagado: !!t.pagado, fechaPago: fechaCobro(t),
         estado: "aprobada", trabajoUuid: t.uuid, aprobada: Date.now(), creada: Date.now(), origen: "agenda",
       });
     }
@@ -1510,7 +1514,7 @@ function pintarReservas() {
       ${r.notas ? `<small class="suave">${esc(r.notas)}</small>` : ""}
       <small class="suave">Pidió: ${esc(r.clienteEmail)}</small>
       ${choque ? '<small class="rojo">Ojo: ya tienes un trabajo ese día.</small>' : ""}
-      ${r.estado === "aprobada" ? `<small>${r.pagado ? '<span class="verde-t">Pagado</span>' : `Pago para el ${fechaCorta(sumarDiasISO(r.fecha, DIAS_PARA_COBRO))}`}</small>` : ""}
+      ${r.estado === "aprobada" ? `<small>${r.pagado ? '<span class="verde-t">Pagado</span>' : `Pago para el ${fechaCorta(r.fechaPago || sumarDiasISO(r.fecha, DIAS_PARA_COBRO))}`}</small>` : ""}
       ${r.comprobante ? `<div><small>Captura de transferencia:</small><br><img src="${r.comprobante}" alt="Captura de transferencia"></div>` : ""}
       ${conAcciones ? '<div class="acciones"><button class="btn primario aprobar">Aprobar</button><button class="btn texto rojo rechazar">Rechazar</button></div>' : ""}`;
     if (conAcciones) {

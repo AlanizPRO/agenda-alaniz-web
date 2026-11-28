@@ -194,6 +194,7 @@
         <label>Precio *<input name="precio" type="number" step="0.01" min="0" required></label>
         <label>Anticipo<input name="anticipo" type="number" step="0.01" min="0"></label>
       </div>
+      <label>Fecha de cobro (opcional: si la dejas vacía son 15 días después del trabajo)<input name="fechaCobro" type="date"></label>
       <p id="form-saldo" class="saldo"></p>
       <fieldset><legend>¿Se realizó el trabajo?</legend>
         <label class="chip"><input type="radio" name="estado" value="PENDIENTE">Pendiente</label>
@@ -278,6 +279,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=39"></script>
+  <script type="module" src="app.js?v=40"></script>
 </body>
 </html>
